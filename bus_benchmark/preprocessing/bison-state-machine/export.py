@@ -3,9 +3,9 @@ import configparser
 from tqdm import tqdm
 
 # DO NOT USE UNTRUSTED DATA, TABLE NAME IS NOT ESCAPED
-table = "tt_trajectories"
+table = "kv6_filtered"
 # output folder on the database server
-output_folder = "/mnt/nvme/sql/kv6_trajectories"
+output_folder = "/mnt/nvme/sql/kv6_filtered"
 # list of lau_ids to export
 lau_ids = [
     "GM0599",
