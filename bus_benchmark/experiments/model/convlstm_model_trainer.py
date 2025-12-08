@@ -47,7 +47,7 @@ class ConvLSTMModelTrainer(ModelTrainerBase):
             **super()._get_config_dict(),
             "model_class": "ConvLSTM",
             "optimizer": "RMSprop",
-            "loss_fn": "Adam",
+            "loss_fn": "MSELoss",
             "scheduler": "ReduceLROnPlateau",
         }
 

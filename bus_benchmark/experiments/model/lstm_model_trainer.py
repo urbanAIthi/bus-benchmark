@@ -46,8 +46,8 @@ class LSTMModelTrainer(ModelTrainerBase):
         return {
             **super()._get_config_dict(),
             "model_class": "LSTM",
-            "optimizer": "SmoothL1Loss",
-            "loss_fn": "Adam",
+            "optimizer": "Adam",
+            "loss_fn": "SmoothL1Loss",
             "scheduler": "ReduceLROnPlateau",
         }
 
