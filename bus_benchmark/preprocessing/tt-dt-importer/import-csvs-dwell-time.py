@@ -1,4 +1,5 @@
 import os
+import gzip
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import psycopg2
 from psycopg2 import sql
@@ -14,7 +15,7 @@ DB_PARAMS = {
     "password": config["database"]["Password"],
     "port": 5432,
 }
-CSV_FOLDER = "/mnt/nvme/sql/kv6_validated/dwell_time_filtered/"
+CSV_FOLDER = "/mnt/nvme/sql/kv6_transformed_v2/dwell_time/"
 TABLE = "dwell_time_final"
 COLUMNS = [
     "lau",
@@ -31,7 +32,7 @@ MAX_WORKERS = 4
 
 copy_sql = sql.SQL("""
     COPY {table} ({cols})
-    FROM %s
+    FROM STDIN
     WITH (
       FORMAT   csv,
       DELIMITER ',',
@@ -49,7 +50,8 @@ def import_csv(path) -> None:
     cur = conn.cursor()
     try:
         print(f"Importing {os.path.basename(path)}")
-        cur.execute(copy_sql, [path])
+        with gzip.open(path, 'rt', encoding='utf-8') as f:
+            cur.copy_expert(copy_sql, f)
         conn.commit()
         print(f"Imported {os.path.basename(path)}")
     finally:
@@ -61,10 +63,10 @@ def main() -> None:
     files = sorted(
         os.path.join(CSV_FOLDER, f)
         for f in os.listdir(CSV_FOLDER)
-        if f.lower().endswith(".csv")
+        if f.lower().endswith(".csv.gz")
     )
     if not files:
-        print("No CSV files found.")
+        print("No CSV.GZ files found.")
         return
 
     with ProcessPoolExecutor(max_workers=MAX_WORKERS) as executor:

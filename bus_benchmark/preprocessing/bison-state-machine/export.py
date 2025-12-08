@@ -1,11 +1,12 @@
 import psycopg2
 import configparser
+import gzip
 from tqdm import tqdm
 
 # DO NOT USE UNTRUSTED DATA, TABLE NAME IS NOT ESCAPED
 table = "kv6_filtered"
 # output folder on the database server
-output_folder = "/mnt/nvme/sql/kv6_filtered"
+output_folder = "/mnt/nvme/sql/kv6_filtered_v2"
 # list of lau_ids to export
 lau_ids = [
     "GM0599",
@@ -43,13 +44,15 @@ cursor = conn.cursor()
 for lau_id in tqdm(lau_ids):
     query = f"""
         copy (
-            select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, userstopcode, st_astext(geom) as geom
+            select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom
             from {table}
             where lau_id = %s
             order by operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, timestamp, id
-        ) to %s delimiter ',' csv header;
+        ) to stdout delimiter ',' csv header;
     """
-    cursor.execute(query, [lau_id, f"{output_folder}/{lau_id}.csv"])
+    sql = cursor.mogrify(query, [lau_id])
+    with gzip.open(f"{output_folder}/{lau_id}.csv.gz", "wt") as f:
+        cursor.copy_expert(sql, f)
 
 cursor.close()
 conn.close()

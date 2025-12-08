@@ -8,6 +8,7 @@ Input files must be pre-sorted by journey identifiers.
 import csv
 import argparse
 import logging
+import gzip
 from tqdm import tqdm
 from typing import Iterator, Tuple, Literal
 
@@ -213,9 +214,9 @@ def derive_times(
 
 
 with (
-    open(args.input, newline="") as infile,
-    open(args.travel_output, "w", newline="") as travel_out,
-    open(args.dwell_output, "w", newline="") as dwell_out,
+    gzip.open(args.input, "rt") as infile,
+    gzip.open(args.travel_output, "wt") as travel_out,
+    gzip.open(args.dwell_output, "wt") as dwell_out,
 ):
     reader = csv.DictReader(infile)
     travel_writer = csv.DictWriter(travel_out, fieldnames=TRAVEL_TIME_FIELDNAMES)
