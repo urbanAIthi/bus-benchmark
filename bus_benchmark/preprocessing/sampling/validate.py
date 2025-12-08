@@ -6,7 +6,6 @@ from tqdm import tqdm
 import argparse
 import logging
 import pandas as pd
-import geopandas as gpd
 from typing import Tuple
 
 TIME_FORMAT_1 = "%Y-%m-%d %H:%M:%S%z"

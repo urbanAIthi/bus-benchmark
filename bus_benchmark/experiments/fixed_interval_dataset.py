@@ -14,13 +14,8 @@ class FixedIntervalDataset:
     def __init__(
         self,
         df: Union[pd.DataFrame, str],
-        simple_split: bool = True,
-        simple_split_months: int = 6,
-        simple_split_n_val_months: int = 1,
-        simple_split_min_test_months: int = 5,
         n_splits: int = 5,
         freq: str = "15T",
-        drop_ha_below_n_count: int = 20,
         ha_agg_func: str = "median",
         ffill_limit: int = 16,
         mad_thresh: float = 3 * 1.4826,
@@ -34,13 +29,8 @@ class FixedIntervalDataset:
             "df must be a DataFrame or a path to a parquet file"
         )
 
-        self.simple_split = simple_split
-        self.simple_split_months = simple_split_months
-        self.simple_split_n_val_months = simple_split_n_val_months
-        self.simple_split_min_test_months = simple_split_min_test_months
         self.n_splits = n_splits
         self.freq = freq
-        self.drop_ha_below_n_count = drop_ha_below_n_count
         self.ha_agg_func = ha_agg_func
         self.ffill_limit = ffill_limit
         self.mad_thresh = mad_thresh
