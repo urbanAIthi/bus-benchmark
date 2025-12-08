@@ -63,6 +63,7 @@ def derive_times(
 
     last = None
     current_stop = None
+    current_psn = None
     types_seen_at_stop = set()
     travel_seq = []
     dwell_seq = []
@@ -96,28 +97,41 @@ def derive_times(
             yield from flush_sequences()
             last = None
             current_stop = None
+            current_psn = None
             types_seen_at_stop.clear()
 
         # clear duplicate tracker on stop boundary
-        if row["userstopcode"] != current_stop:
+        if (
+            row["userstopcode"] != current_stop
+            or row["passagesequencenumber"] != current_psn
+        ):
             current_stop = row["userstopcode"]
+            current_psn = row["passagesequencenumber"]
             types_seen_at_stop.clear()
 
         # ignore all types which are not handled by the state machine
-        if row["type"] not in ["ARRIVAL", "DEPARTURE"]:
+        if row["type"] not in ["ARRIVAL", "DEPARTURE", "ONSTOP"]:
             continue
 
+        # as per the KV6 spec, ONSTOP without a prior ARRIVAL
+        # should be treated as an ARRIVAL
+        ct = row["type"]
+        if ct == "ONSTOP":
+            ct = "ARRIVAL"
+        if last:
+            lt = last["type"]
+            if lt == "ONSTOP":
+                lt = "ARRIVAL"
+
         # skip if we already saw this type at this stop
-        if row["type"] in types_seen_at_stop:
+        if ct in types_seen_at_stop:
             continue
         else:
-            types_seen_at_stop.add(row["type"])
+            types_seen_at_stop.add(ct)
 
         if last:
             if row["timestamp"] < last["timestamp"]:
                 raise ValueError("Timestamps are not sorted")
-
-            lt, ct = last["type"], row["type"]
 
             if lt == "DEPARTURE" and ct == "ARRIVAL":
                 # emit travel time > 0
@@ -188,6 +202,9 @@ def derive_times(
                 else:
                     valid_sequence = False
                     error_message = "Two arrivals in a row"
+            else:
+                valid_sequence = False
+                error_message = f"Unexpected event sequence ({lt} -> {ct})"
 
         last = row
 
