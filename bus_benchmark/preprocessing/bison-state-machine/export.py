@@ -30,7 +30,7 @@ lau_ids = [
 ]
 
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read("../../../config.ini")
 
 conn = psycopg2.connect(
     host=config["database"]["Host"],

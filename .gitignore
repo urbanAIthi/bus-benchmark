@@ -167,3 +167,4 @@ output/
 tuning/
 bus_benchmark/experiments/wandb/
 wandb/
+config.ini

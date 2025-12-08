@@ -6,7 +6,7 @@ from psycopg2 import sql
 import configparser
 
 config = configparser.ConfigParser()
-config.read("config.ini")
+config.read("../../../config.ini")
 
 DB_PARAMS = {
     "host": config["database"]["Host"],
