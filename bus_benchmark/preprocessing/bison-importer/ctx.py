@@ -13,12 +13,12 @@ def parse_ctx_message(ctx_message):
     current_labels = None
 
     for line in lines:
-        if line.startswith("\G"):
+        if line.startswith(r"\G"):
             parsed_message["meta"] = _parse_header(line)
-        elif line.startswith("\T"):
+        elif line.startswith(r"\T"):
             current_table = {"meta": _parse_table_header(line), "data": []}
             parsed_message["tables"].append(current_table)
-        elif line.startswith("\L"):
+        elif line.startswith(r"\L"):
             current_labels = _parse_labels(line)
         elif line and current_table and current_labels:
             current_table["data"].append(_parse_table_data(line, current_labels))
