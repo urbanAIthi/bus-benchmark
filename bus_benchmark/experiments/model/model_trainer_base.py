@@ -369,8 +369,10 @@ class ModelTrainerBase:
     def _init_wandb(
         self, name: str, additional_config: dict[str, Any] = {}
     ) -> wandb.sdk.wandb_run:  # type: ignore
-        config_dict = self.config_dict
-        config_dict.update(additional_config)
+        config_dict = {
+            **self.config_dict,
+            **additional_config
+        }
 
         run = wandb.init(
             entity=config.WANDB_ENTITY,
