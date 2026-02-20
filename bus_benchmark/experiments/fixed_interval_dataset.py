@@ -97,14 +97,14 @@ class FixedIntervalDataset:
 
         df_ha = df.groupby(
             [df[link_col], df[time_col].dt.floor(self.freq).dt.strftime("%w_%H:%M")]
-        ).agg({travel_time_col: "median"})
+        ).agg({travel_time_col: self.ha_agg_func})
         df_ha = df_ha.reindex(complete_index)
         df_ha.index = df_ha.index.rename(["link", "timeslot"])
-        df_ha = df_ha.rename(columns={travel_time_col: "median"})
+        df_ha = df_ha.rename(columns={travel_time_col: self.ha_agg_func})
 
         def interpolate_group(grp):
             grp = pd.concat([grp, grp, grp])
-            grp["median"] = grp["median"].interpolate(method="linear")
+            grp[self.ha_agg_func] = grp[self.ha_agg_func].interpolate(method="linear")
             return grp.iloc[len(grp) // 3 : len(grp) // 3 * 2]
 
         if self.interpolate_ha:
@@ -157,7 +157,6 @@ class FixedIntervalDataset:
     def _pivot(
         self,
         df: pd.DataFrame,
-        freq: str = "15T",
         ffill_limit=4,
         values_col="travel_time_minus_median",
     ) -> pd.DataFrame:
@@ -188,7 +187,7 @@ class FixedIntervalDataset:
         full_idx = pd.date_range(
             start=residual_matrix.index.min(),
             end=residual_matrix.index.max(),
-            freq=freq,
+            freq=self.freq,
             tz="UTC",
         )
 
@@ -259,7 +258,7 @@ class FixedIntervalDataset:
 
             # pivot the travel times
             values_col = (
-                "travel_time_minus_median"
+                f"travel_time_minus_{self.ha_agg_func}"
                 if self.calculate_residuals
                 else "travel_time"
             )
