@@ -1,9 +1,9 @@
 import psycopg2
 import configparser
 import gzip
+from psycopg2 import sql
 from tqdm import tqdm
 
-# DO NOT USE UNTRUSTED DATA, TABLE NAME IS NOT ESCAPED
 table = "kv6_filtered"
 # output folder on the database server
 output_folder = "/mnt/nvme/sql/kv6_filtered_v2"
@@ -41,23 +41,24 @@ conn = psycopg2.connect(
 
 cursor = conn.cursor()
 
-for lau_id in tqdm(lau_ids):
-    query = f"""
-        copy (
-            select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber,
-                journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom
+query_template = sql.SQL("""
+    copy (
+        select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber,
+            journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom
+        from {table}
+        where (operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber) in (
+            select distinct operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber
             from {table}
-            where (operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber) in (
-                select distinct operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber
-                from {table}
-                where lau_id = %s
-            )
-            order by operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, timestamp, id
-        ) to stdout delimiter ',' csv header;
-    """
-    sql = cursor.mogrify(query, [lau_id])
+            where lau_id = %s
+        )
+        order by operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, timestamp, id
+    ) to stdout delimiter ',' csv header;
+""").format(table=sql.Identifier(table))
+
+for lau_id in tqdm(lau_ids):
+    query = cursor.mogrify(query_template.as_string(cursor), [lau_id])
     with gzip.open(f"{output_folder}/{lau_id}.csv.gz", "wt") as f:
-        cursor.copy_expert(sql, f)
+        cursor.copy_expert(query, f)
 
 cursor.close()
 conn.close()
