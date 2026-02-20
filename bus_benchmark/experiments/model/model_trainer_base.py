@@ -62,6 +62,8 @@ class ModelTrainerBase:
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+        self._setup_seed()
+
         self.models: list[nn.Module] = []
         self.total_split_metrics: list[dict[str, Union[int, float, Any]]] = []
         self.geometric_means: dict[str, torch.Tensor] = {}
