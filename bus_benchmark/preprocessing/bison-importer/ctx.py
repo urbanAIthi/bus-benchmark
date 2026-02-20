@@ -96,6 +96,6 @@ def _preprocess_field(field):
     else:
         field = field.replace("\\r", "\r")
         field = field.replace("\\n", "\n")
-        field = field.replace("\\i", "\\")
         field = field.replace("\\p", "|")
+        field = field.replace("\\i", "\\")
     return field
