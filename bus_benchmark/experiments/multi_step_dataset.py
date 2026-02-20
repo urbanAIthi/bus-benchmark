@@ -36,7 +36,7 @@ class MultiStepDataset(Dataset):
         X_all = sliding_window_view(vals_x, window_shape=seq_len, axis=0)
         Y_all = sliding_window_view(vals_y, window_shape=max_h, axis=0)
 
-        n_samples = T - seq_len - max_h
+        n_samples = T - seq_len - max_h + 1
         X_win = X_all[:n_samples]
         Y_win = Y_all[seq_len : seq_len + n_samples]
 
