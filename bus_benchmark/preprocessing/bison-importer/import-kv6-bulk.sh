@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 FOLDER_IN=/mnt/nvme/benchmark/kv6
 FOLDER_OUT=/mnt/nvme/benchmark/kv6_converted
 THREADS=24
