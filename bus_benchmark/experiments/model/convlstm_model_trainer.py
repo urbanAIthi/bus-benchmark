@@ -48,7 +48,7 @@ class ConvLSTMModelTrainer(ModelTrainerBase):
             "model_class": "ConvLSTM",
             "optimizer": "RMSprop",
             "loss_fn": "MSELoss",
-            "scheduler": "ReduceLROnPlateau",
+            "scheduler": "LambdaLR",
         }
 
     def _get_model(

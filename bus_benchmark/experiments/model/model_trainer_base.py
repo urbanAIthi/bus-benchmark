@@ -80,7 +80,7 @@ class ModelTrainerBase:
             scaler,
             absolut_matrix_train,
         ) in enumerate(self.splits):
-            logger.info("Running split %d/%d", idx, len(self.splits))
+            logger.info("Running split %d/%d", idx + 1, len(self.splits))
             self.train_model(
                 df_train, df_val, df_test, df_ha, scaler, absolut_matrix_train, idx
             )
@@ -332,7 +332,7 @@ class ModelTrainerBase:
         run.log(
             {
                 f"{eval_type}/loss": eval_loss,
-                **{f"{eval_type}/{k}": v for k, v in self.run_metrics.items()},
+                **dict(self.run_metrics.items()),
             }
         )
 
