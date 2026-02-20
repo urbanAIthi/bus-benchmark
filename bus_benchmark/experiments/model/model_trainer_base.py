@@ -139,7 +139,7 @@ class ModelTrainerBase:
             best_model_wts = copy.deepcopy(model.state_dict())
             epochs_no_improve = 0
 
-            scaler_amp = torch.GradScaler()
+            scaler_amp = torch.GradScaler(device=self.device.type)
 
             # training loop
             for epoch in range(1, self.n_epochs + 1):
@@ -157,7 +157,7 @@ class ModelTrainerBase:
                     mask = ~torch.isnan(x)
                     x = torch.nan_to_num(x, nan=0.0)
 
-                    with torch.autocast("cuda"):
+                    with torch.autocast(device_type=self.device.type):
                         preds = self._run_model(model, x, mask)
                         loss = criterion(preds, y)
 
