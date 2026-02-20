@@ -50,6 +50,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True)
 parser.add_argument("--travel-output", required=True)
 parser.add_argument("--dwell-output", required=True)
+parser.add_argument("--lau", required=False, help="Only keep records for this LAU")
 args = parser.parse_args()
 
 logging.getLogger().setLevel(logging.CRITICAL)
@@ -226,6 +227,8 @@ with (
     dwell_writer.writeheader()
 
     for kind, entry in derive_times(iter(tqdm(reader))):
+        if args.lau is not None and entry["lau"] != args.lau:
+            continue
         if kind == "travel":
             travel_writer.writerow(entry)
         elif kind == "dwell":

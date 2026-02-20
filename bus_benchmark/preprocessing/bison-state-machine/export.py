@@ -44,9 +44,14 @@ cursor = conn.cursor()
 for lau_id in tqdm(lau_ids):
     query = f"""
         copy (
-            select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom
+            select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber,
+                journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom
             from {table}
-            where lau_id = %s
+            where (operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber) in (
+                select distinct operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber
+                from {table}
+                where lau_id = %s
+            )
             order by operatingday, dataownercode, lineplanningnumber, journeynumber, reinforcementnumber, timestamp, id
         ) to stdout delimiter ',' csv header;
     """
