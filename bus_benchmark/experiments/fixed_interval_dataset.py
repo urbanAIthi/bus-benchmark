@@ -1,4 +1,5 @@
 from bus_benchmark import config
+from bus_benchmark.experiments.utils import preprocess_csv
 from sklearn.preprocessing import StandardScaler
 from typing import Union, List, Tuple
 import logging
@@ -26,7 +27,7 @@ class FixedIntervalDataset:
         min_split_size: int = (60 // 15) * 24 * 7,
     ) -> None:
         assert isinstance(df, (pd.DataFrame, str)), (
-            "df must be a DataFrame or a path to a parquet file"
+            "df must be a DataFrame or a path to a CSV file"
         )
 
         self.n_splits = n_splits
@@ -49,10 +50,11 @@ class FixedIntervalDataset:
 
     @staticmethod
     def _load_df(df) -> pd.DataFrame:
-        if isinstance(df, str) and df.endswith(".parquet"):
-            df = pd.read_parquet(df)
+        if isinstance(df, str) and df.endswith(".csv"):
+            df = pd.read_csv(df)
+            df = preprocess_csv(df)
         else:
-            raise ValueError("df must be a path to a parquet file")
+            raise ValueError("df must be a path to a CSV file")
         return df
 
     def _split_time_series(
