@@ -130,8 +130,8 @@ def mark_broken_dwell_times(
         right_index=True,
     )
 
-    tt["valid_dwell_times"] = tt["valid_dwell_times"].notnull()
-    dt["valid_dwell_times"] = dt["valid_dwell_times"].notnull()
+    tt["valid_dwell_times"] = tt["valid_dwell_times"].fillna(False)
+    dt["valid_dwell_times"] = dt["valid_dwell_times"].fillna(False)
 
     tt = tt.drop(columns=["week"])
     dt = dt.drop(columns=["week"])
