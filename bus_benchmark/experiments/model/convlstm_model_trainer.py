@@ -56,6 +56,7 @@ class ConvLSTMModelTrainer(ModelTrainerBase):
     ) -> nn.Module:
         model = ConvLSTMModel(
             output_timesteps=n_output_timesteps,
+            n_links=n_output_features,
         )
         return model.to(self.device)
 

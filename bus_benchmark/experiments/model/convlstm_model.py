@@ -10,10 +10,11 @@ class ConvLSTMModel(nn.Module):
     https://github.com/niklascp/bus-arrival-convlstm/blob/master/jupyter/ConvLSTM_3x15min_10x64-5x64-10x64-5x64.ipynb
     """
 
-    def __init__(self, output_timesteps: int):
+    def __init__(self, output_timesteps: int, n_links: int):
         super().__init__()
 
         self.output_timesteps = output_timesteps
+        self.n_links = n_links
 
         self.bn0 = PermutedBatchNorm3d(1)
 
@@ -66,6 +67,9 @@ class ConvLSTMModel(nn.Module):
         self.relu = nn.ReLU()
 
     def forward(self, x):
+        if x.shape[-1] != self.n_links:
+            raise ValueError("Last dimension of input must match number of links")
+
         x = x.unsqueeze(-1).unsqueeze(
             -1
         )  # (B=batch_size, T=in_steps, H=num_links, W=1, C=1)
