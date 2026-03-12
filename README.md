@@ -35,7 +35,7 @@ Run the following scripts in order:
 * Validate travel and dwell times:  
 `bus_benchmark/preprocessing/sampling/validate-all.sh`
 * Sample LAUs and export final travel and dwell time CSV files:  
-`notebooks/sampling.ipynb`
+`bus_benchmark/preprocessing/sampling/sample.py`
 
 ## CSV schema
 
