@@ -20,6 +20,9 @@ TRAVEL_TIME_DIR = os.environ.get(
 DWELL_TIME_DIR = os.environ.get(
     "DWELL_TIME_DIR", "/mnt/nvme/sql/kv6_validated_v2/dwell_time"
 )
+TRAJECTORY_DIR = os.environ.get(
+    "TRAJECTORY_DIR", "/mnt/nvme/sql/kv6_validated_v2/trajectory"
+)
 TRAVEL_TIME_FILTERED_DIR = os.environ.get(
     "TRAVEL_TIME_FILTERED_DIR",
     "/mnt/nvme/sql/kv6_validated_v2/travel_time_filtered",
@@ -27,6 +30,10 @@ TRAVEL_TIME_FILTERED_DIR = os.environ.get(
 DWELL_TIME_FILTERED_DIR = os.environ.get(
     "DWELL_TIME_FILTERED_DIR",
     "/mnt/nvme/sql/kv6_validated_v2/dwell_time_filtered",
+)
+TRAJECTORY_FILTERED_DIR = os.environ.get(
+    "TRAJECTORY_FILTERED_DIR",
+    "/mnt/nvme/sql/kv6_validated_v2/trajectory_filtered",
 )
 NUTS_CSV_PATH = os.environ.get(
     "NUTS_CSV_PATH", "/data/dev/benchmark/sampling/EU-27-LAU-2023-NUTS-2021.csv"
@@ -260,6 +267,7 @@ def run_export(
 
     os.makedirs(TRAVEL_TIME_FILTERED_DIR, exist_ok=True)
     os.makedirs(DWELL_TIME_FILTERED_DIR, exist_ok=True)
+    os.makedirs(TRAJECTORY_FILTERED_DIR, exist_ok=True)
 
     dummy_stops = load_dummy_stops()
 
@@ -279,7 +287,7 @@ def run_export(
         ]
         routes = routes[["route", "route_id"]].drop_duplicates()
 
-        # ── Travel time ──
+        # Travel times
         tt_path = os.path.join(TRAVEL_TIME_DIR, f"{lau}.parquet")
         tt = pd.read_parquet(tt_path)
         tt["has_geometry"] = tt["from_geometry"].notna() & tt["to_geometry"].notna()
@@ -293,7 +301,7 @@ def run_export(
         tt_out = os.path.join(TRAVEL_TIME_FILTERED_DIR, f"{lau}.csv")
         tt.to_csv(tt_out, index=False)
 
-        # ── Dwell time ──
+        # Dwell times
         dt_path = os.path.join(DWELL_TIME_DIR, f"{lau}.parquet")
         dt = pd.read_parquet(dt_path)
         dt["has_geometry"] = dt["geometry"].notna()
@@ -306,6 +314,15 @@ def run_export(
         dt = clean_for_output(dt)
         dt_out = os.path.join(DWELL_TIME_FILTERED_DIR, f"{lau}.csv")
         dt.to_csv(dt_out, index=False)
+
+        # Trajectories
+        traj_path = os.path.join(TRAJECTORY_DIR, f"{lau}.csv.gz")
+        traj = pd.read_csv(traj_path, compression="gzip", dtype=str)
+        valid_trips = tt[["date", "line", "trip"]].drop_duplicates()
+        valid_trips["date"] = valid_trips["date"].dt.strftime("%Y-%m-%d")
+        traj = pd.merge(traj, valid_trips, on=["date", "line", "trip"], how="inner")
+        traj_out = os.path.join(TRAJECTORY_FILTERED_DIR, f"{lau}.csv")
+        traj.to_csv(traj_out, index=False)
 
     print("Export complete.")
 
