@@ -46,10 +46,20 @@ DWELL_TIME_FIELDNAMES = [
     "valid",
 ]
 
+TRAJECTORY_FIELDNAMES = [
+    "lau",
+    "date",
+    "line",
+    "trip",
+    "geometry",
+    "time",
+]
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True)
 parser.add_argument("--travel-output", required=True)
 parser.add_argument("--dwell-output", required=True)
+parser.add_argument("--trajectory-output", required=True)
 parser.add_argument("--lau", required=False, help="Only keep records for this LAU")
 args = parser.parse_args()
 
@@ -58,9 +68,9 @@ logging.getLogger().setLevel(logging.CRITICAL)
 
 def derive_times(
     rows: Iterator[dict],
-) -> Iterator[Tuple[Literal["travel", "dwell"], dict]]:
+) -> Iterator[Tuple[Literal["travel", "dwell", "trajectory"], dict]]:
     """
-    Derives travel and dwell times from KV6 data.
+    Derives travel times, dwell times, and trajectories from KV6 data.
     """
 
     last = None
@@ -71,6 +81,7 @@ def derive_times(
     dwell_seq = []
     valid_sequence = True
     error_message = None
+    last_trajectory = None
 
     def flush_sequences() -> Iterator[Tuple[Literal["travel", "dwell"], dict]]:
         nonlocal travel_seq, dwell_seq, valid_sequence, error_message
@@ -110,6 +121,19 @@ def derive_times(
             current_stop = row["userstopcode"]
             current_psn = row["passagesequencenumber"]
             types_seen_at_stop.clear()
+
+        # emit trajectory point for every row
+        traj_entry = {
+            "lau": row["lau_id"],
+            "date": row["operatingday"],
+            "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
+            "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
+            "geometry": row["geom"],
+            "time": row["timestamp"],
+        }
+        if traj_entry != last_trajectory:
+            yield "trajectory", traj_entry
+            last_trajectory = traj_entry
 
         # ignore all types which are not handled by the state machine
         if row["type"] not in ["ARRIVAL", "DEPARTURE", "ONSTOP"]:
@@ -218,13 +242,16 @@ with (
     gzip.open(args.input, "rt") as infile,
     gzip.open(args.travel_output, "wt") as travel_out,
     gzip.open(args.dwell_output, "wt") as dwell_out,
+    gzip.open(args.trajectory_output, "wt") as traj_out,
 ):
     reader = csv.DictReader(infile)
     travel_writer = csv.DictWriter(travel_out, fieldnames=TRAVEL_TIME_FIELDNAMES)
     dwell_writer = csv.DictWriter(dwell_out, fieldnames=DWELL_TIME_FIELDNAMES)
+    traj_writer = csv.DictWriter(traj_out, fieldnames=TRAJECTORY_FIELDNAMES)
 
     travel_writer.writeheader()
     dwell_writer.writeheader()
+    traj_writer.writeheader()
 
     for kind, entry in derive_times(iter(tqdm(reader))):
         if args.lau is not None and entry["lau"] != args.lau:
@@ -233,3 +260,5 @@ with (
             travel_writer.writerow(entry)
         elif kind == "dwell":
             dwell_writer.writerow(entry)
+        elif kind == "trajectory":
+            traj_writer.writerow(entry)

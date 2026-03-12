@@ -36,8 +36,6 @@ Run the following scripts in order:
 `bus_benchmark/preprocessing/sampling/validate-all.sh`
 * Sample LAUs and export final travel and dwell time CSV files:  
 `notebooks/sampling.ipynb`
-* Export final trajectory CSV files:  
-`bus_benchmark/preprocessing/sampling/extract-all-trajectories.sh`
 
 ## CSV schema
 
