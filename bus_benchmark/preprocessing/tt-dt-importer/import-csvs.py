@@ -1,20 +1,19 @@
 import argparse
-import configparser
 import gzip
 import os
 import psycopg2
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from psycopg2 import sql
+from dotenv import load_dotenv
 
-config = configparser.ConfigParser()
-config.read("../../../config.ini")
+load_dotenv()
 
 DB_PARAMS = {
-    "host": config["database"]["Host"],
-    "dbname": config["database"]["Database"],
-    "user": config["database"]["User"],
-    "password": config["database"]["Password"],
-    "port": 5432,
+    "host": os.getenv("DB_HOST"),
+    "dbname": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
+    "port": int(os.getenv("DB_PORT", 5432)),
 }
 
 COLUMN_PRESETS = {

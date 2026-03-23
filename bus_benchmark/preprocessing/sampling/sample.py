@@ -7,51 +7,28 @@ import argparse
 import os
 from datetime import date
 from glob import glob
-from pathlib import Path
 
 import pandas as pd
 from tqdm import tqdm
+from dotenv import load_dotenv
 
 # Configuration
 
-TRAVEL_TIME_DIR = os.environ.get(
-    "TRAVEL_TIME_DIR", "/mnt/nvme/sql/kv6_validated_v2/travel_time"
-)
-DWELL_TIME_DIR = os.environ.get(
-    "DWELL_TIME_DIR", "/mnt/nvme/sql/kv6_validated_v2/dwell_time"
-)
-TRAJECTORY_DIR = os.environ.get(
-    "TRAJECTORY_DIR", "/mnt/nvme/sql/kv6_validated_v2/trajectory"
-)
-TRAVEL_TIME_FILTERED_DIR = os.environ.get(
-    "TRAVEL_TIME_FILTERED_DIR",
-    "/mnt/nvme/sql/kv6_validated_v2/travel_time_filtered",
-)
-DWELL_TIME_FILTERED_DIR = os.environ.get(
-    "DWELL_TIME_FILTERED_DIR",
-    "/mnt/nvme/sql/kv6_validated_v2/dwell_time_filtered",
-)
-TRAJECTORY_FILTERED_DIR = os.environ.get(
-    "TRAJECTORY_FILTERED_DIR",
-    "/mnt/nvme/sql/kv6_validated_v2/trajectory_filtered",
-)
-NUTS_CSV_PATH = os.environ.get(
-    "NUTS_CSV_PATH", "/data/dev/benchmark/sampling/EU-27-LAU-2023-NUTS-2021.csv"
-)
+load_dotenv()
+TRAVEL_TIME_DIR = os.environ.get("KV6_VALIDATED", "") + "/travel_time"
+DWELL_TIME_DIR = os.environ.get("KV6_VALIDATED", "") + "/dwell_time"
+TRAJECTORY_DIR = os.environ.get("KV6_VALIDATED", "") + "/trajectory"
 
-SCRIPT_DIR = Path(__file__).resolve().parent
-PROJECT_DIR = SCRIPT_DIR.parent
-NOTEBOOKS_DIR = PROJECT_DIR / "notebooks"
+EXPORT_TRAVEL_TIMES_DIR=os.environ.get("KV6_EXPORT", "") + "/travel_time"
+EXPORT_DWELL_TIMES_DIR=os.environ.get("KV6_EXPORT", "") + "/dwell_time"
+EXPORT_TRAJECTORIES_DIR=os.environ.get("KV6_EXPORT", "") + "/trajectory"
+NUTS_CSV_PATH = os.environ.get("NUTS_CSV_PATH", "")
 
-DUMMY_BLACKLIST_PATH = NOTEBOOKS_DIR / "dummy-blacklist.csv"
-SUMMARY_PATH = NOTEBOOKS_DIR / "summary_df_v2.parquet"
-SAMPLED_LAUS_PATH = NOTEBOOKS_DIR / "sampled_laus_v2.csv"
+DUMMY_BLACKLIST_PATH = os.environ.get("DUMMY_BLACKLIST_PATH", "")
+SUMMARY_PATH = os.environ.get("SUMMARY_PATH", "")
+SAMPLED_LAUS_PATH = os.environ.get("SAMPLED_LAUS_PATH", "")
 
-LAU_WHITELIST = [
-    "GM0599", "GM0518", "GM0344", "GM0546", "GM0503", "GM1930",
-    "GM0590", "GM1842", "GM0281", "GM0059", "GM0047", "GM0629",
-    "GM0312", "GM1969", "GM1731", "GM1950", "GM1681", "GM1690",
-]
+LAU_WHITELIST = os.getenv("LAU_WHITELIST", "").split(" ")
 
 MIN_COVERAGE = 0.5
 MIN_TRIP_COUNT = 100
@@ -265,9 +242,9 @@ def run_export(
     """Stage 3: filter & export travel-time and dwell-time CSVs."""
     print("\n=== Stage 3: Export filtered data ===")
 
-    os.makedirs(TRAVEL_TIME_FILTERED_DIR, exist_ok=True)
-    os.makedirs(DWELL_TIME_FILTERED_DIR, exist_ok=True)
-    os.makedirs(TRAJECTORY_FILTERED_DIR, exist_ok=True)
+    os.makedirs(EXPORT_TRAVEL_TIMES_DIR, exist_ok=True)
+    os.makedirs(EXPORT_DWELL_TIMES_DIR, exist_ok=True)
+    os.makedirs(EXPORT_TRAJECTORIES_DIR, exist_ok=True)
 
     dummy_stops = load_dummy_stops()
 
@@ -298,7 +275,7 @@ def run_export(
         tt = tt.loc[has_geo]
         tt = pd.merge(tt, routes, on=["route", "route_id"], how="inner")
         tt = clean_for_output(tt)
-        tt_out = os.path.join(TRAVEL_TIME_FILTERED_DIR, f"{lau}.csv")
+        tt_out = os.path.join(EXPORT_TRAVEL_TIMES_DIR, f"{lau}.csv")
         tt.to_csv(tt_out, index=False)
 
         # Dwell times
@@ -312,7 +289,7 @@ def run_export(
         dt = dt.loc[has_geo]
         dt = pd.merge(dt, routes, on=["route", "route_id"], how="inner")
         dt = clean_for_output(dt)
-        dt_out = os.path.join(DWELL_TIME_FILTERED_DIR, f"{lau}.csv")
+        dt_out = os.path.join(EXPORT_DWELL_TIMES_DIR, f"{lau}.csv")
         dt.to_csv(dt_out, index=False)
 
         # Trajectories
@@ -321,7 +298,7 @@ def run_export(
         valid_trips = tt[["date", "line", "trip"]].drop_duplicates()
         valid_trips["date"] = valid_trips["date"].dt.strftime("%Y-%m-%d")
         traj = pd.merge(traj, valid_trips, on=["date", "line", "trip"], how="inner")
-        traj_out = os.path.join(TRAJECTORY_FILTERED_DIR, f"{lau}.csv")
+        traj_out = os.path.join(EXPORT_TRAJECTORIES_DIR, f"{lau}.csv")
         traj.to_csv(traj_out, index=False)
 
     print("Export complete.")

@@ -1,6 +1,7 @@
 import copy
 from datetime import datetime
 import logging
+import os
 from typing import Any, Dict, List, Optional, Union, Literal
 
 import pandas as pd
@@ -10,15 +11,19 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 import wandb
+from dotenv import load_dotenv
 
 from bus_benchmark.experiments.fixed_interval_dataset import FixedIntervalDataset
 from bus_benchmark.experiments.metrics_manager import MetricsManager
 from bus_benchmark.experiments.multi_step_dataset import MultiStepDataset
-from bus_benchmark import config
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+load_dotenv()
+
+WANDB_ENTITY = os.getenv("WANDB_ENTITY", "")
+WANDB_PROJECT = os.getenv("WANDB_PROJECT", "")
 
 class ModelTrainerBase:
     def __init__(
@@ -377,8 +382,8 @@ class ModelTrainerBase:
         }
 
         run = wandb.init(
-            entity=config.WANDB_ENTITY,
-            project=config.WANDB_PROJECT,
+            entity=WANDB_ENTITY,
+            project=WANDB_PROJECT,
             group=self.group,
             name=name,
             config=config_dict,

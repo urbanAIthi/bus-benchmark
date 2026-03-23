@@ -1,4 +1,3 @@
-from bus_benchmark import config
 from bus_benchmark.experiments.utils import preprocess_csv
 from sklearn.preprocessing import StandardScaler
 from typing import Union, List, Tuple
