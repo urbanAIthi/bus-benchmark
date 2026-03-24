@@ -2,7 +2,7 @@
 -- which in combination with st_geometricmedian leads to an out of memory error
 set enable_hashagg=off;
 
-create table kv6_median_stop_locations as (
+create unlogged table kv6_median_stop_locations as (
     select
         dataownercode,
         userstopcode,

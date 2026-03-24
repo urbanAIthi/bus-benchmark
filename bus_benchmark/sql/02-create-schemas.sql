@@ -2,7 +2,7 @@ CREATE TYPE kv6_type AS enum ('DELAY', 'INIT', 'ARRIVAL', 'ONSTOP', 'DEPARTURE',
 CREATE TYPE kv6_source AS enum ('VEHICLE', 'SERVER');
 CREATE TYPE kv6_wheelchairaccessible AS enum ('ACCESSIBLE', 'NOTACCESSIBLE', 'UNKNOWN');
 
-CREATE TABLE kv6_csv (
+CREATE UNLOGGED TABLE kv6_csv (
     id BIGSERIAL PRIMARY KEY,
     type kv6_type,
     dataownercode VARCHAR(10),
@@ -35,7 +35,7 @@ CREATE INDEX kv6_csv_reinforcementnumber_idx ON kv6_csv USING btree (reinforceme
 
 CREATE TYPE e9_transporttype AS enum ('TRAIN', 'BUS', 'METRO', 'TRAM', 'BOAT');
 
-CREATE TABLE kv7_usertimingpoint (
+CREATE UNLOGGED TABLE kv7_usertimingpoint (
     timestamp TIMESTAMP WITH TIME ZONE,
     dataownercode VARCHAR(10),
     userstopcode VARCHAR(10),
@@ -45,7 +45,7 @@ CREATE TABLE kv7_usertimingpoint (
     getout BOOLEAN
 );
 
-CREATE TABLE kv7_timingpoint (
+CREATE UNLOGGED TABLE kv7_timingpoint (
     timestamp TIMESTAMP WITH TIME ZONE,
     dataownercode VARCHAR(10),
     timingpointcode VARCHAR(10),
@@ -56,7 +56,7 @@ CREATE TABLE kv7_timingpoint (
     location_wgs84 GEOMETRY(Point, 4326) GENERATED ALWAYS AS (ST_Transform(location, 4326)) STORED
 );
 
-CREATE TABLE kv7_line (
+CREATE UNLOGGED TABLE kv7_line (
     timestamp TIMESTAMP WITH TIME ZONE,
     dataownercode VARCHAR(10),
     lineplanningnumber VARCHAR(10),

@@ -1,4 +1,4 @@
-create table kv6_filtered as (
+create unlogged table kv6_filtered as (
     with lines as (
 		select distinct dataownercode, lineplanningnumber
         from kv7_line
