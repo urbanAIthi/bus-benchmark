@@ -72,3 +72,43 @@ CREATE UNLOGGED TABLE kv7_line (
 CREATE INDEX kv7_dataownercode ON kv7_line USING btree (dataownercode);
 CREATE INDEX kv7_lineplanningnumber ON kv7_line USING btree (lineplanningnumber);
 CREATE INDEX kv7_transporttype ON kv7_line USING btree (transporttype);
+
+CREATE TYPE e7_journeystoptype AS ENUM ('FIRST', 'INTERMEDIATE', 'LAST');
+CREATE TYPE e21_showflexibletrip AS ENUM ('TRUE', 'FALSE', 'REALTIME');
+CREATE TYPE e22_monitoringerror AS ENUM ('GPS', 'GPRS', 'Radio', 'General', 'NoSystem', 'other', 'unknown');
+
+CREATE UNLOGGED TABLE kv7_localservicegrouppasstime (
+    timestamp TIMESTAMP WITH TIME ZONE,
+    dataownercode VARCHAR(10),
+    localservicelevelcode VARCHAR(10),
+    lineplanningnumber VARCHAR(10),
+    journeynumber INT,
+    fortifyordernumber INT,
+    userstopcode VARCHAR(10),
+    userstopordernumber INT,
+    journeypatterncode VARCHAR(100),
+    linedirection INT,
+    destinationcode VARCHAR(10),
+    targetarrivaltime VARCHAR(8),
+    targetdeparturetime VARCHAR(8),
+    sidecode VARCHAR(10),
+    wheelchairaccessible kv6_wheelchairaccessible,
+    journeystoptype e7_journeystoptype,
+    istimingstop BOOLEAN,
+    productformulatype INT,
+    getin BOOLEAN,
+    getout BOOLEAN,
+    showflexibletrip e21_showflexibletrip,
+    linedestcolor VARCHAR(6),
+    linedesttextcolor VARCHAR(6),
+    blockcode INT,
+    sequenceinblock INT,
+    vehiclejourneytype e22_monitoringerror,
+    quaycode VARCHAR(20),
+    plannedmonitored BOOLEAN
+);
+
+CREATE INDEX kv7_localservicegrouppasstime_timestamp_idx ON kv7_localservicegrouppasstime USING btree (timestamp);
+CREATE INDEX kv7_localservicegrouppasstime_dataownercode_idx ON kv7_localservicegrouppasstime USING btree (dataownercode);
+CREATE INDEX kv7_localservicegrouppasstime_lineplanningnumber_idx ON kv7_localservicegrouppasstime USING btree (lineplanningnumber);
+CREATE INDEX kv7_localservicegrouppasstime_journeynumber_idx ON kv7_localservicegrouppasstime USING btree (journeynumber);
