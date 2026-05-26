@@ -11,14 +11,14 @@ KV6_FILTERED = os.getenv("KV6_FILTERED")
 
 conn = psycopg2.connect(
     host=os.getenv("DB_HOST"),
-    database=os.getenv("DB_DATABASE"),
+    database=os.getenv("DB_NAME"),
     user=os.getenv("DB_USER"),
     password=os.getenv("DB_PASSWORD"),
 )
 
 cursor = conn.cursor()
+cursor.execute("SET work_mem = '1GB'")
 
-query_template = """
     copy (
         select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber,
             journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom
