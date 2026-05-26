@@ -6,6 +6,8 @@ from tqdm import tqdm
 import argparse
 import logging
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 from typing import Tuple
 
 TIME_FORMAT_1 = "%Y-%m-%d %H:%M:%S%z"
@@ -14,8 +16,10 @@ TIME_FORMAT_2 = "%Y-%m-%d %H:%M:%S.%f%z"
 parser = argparse.ArgumentParser()
 parser.add_argument("--tt-input", type=str, required=True)
 parser.add_argument("--dt-input", type=str, required=True)
+parser.add_argument("--traj-input", type=str, required=True)
 parser.add_argument("--tt-output", type=str, required=True)
 parser.add_argument("--dt-output", type=str, required=True)
+parser.add_argument("--traj-output", type=str, required=True)
 args = parser.parse_args()
 
 logging.basicConfig(level=logging.INFO)
@@ -42,17 +46,17 @@ def load_travel_times(path: str) -> pd.DataFrame:
     df = pd.read_csv(
         path,
         dtype={
-            "lau": str,
+            "lau": "category",
             "date": str,
-            "line": str,
+            "line": "category",
             "trip": str,
-            "from_stop": str,
-            "to_stop": str,
-            "from_geometry": str,
-            "to_geometry": str,
+            "from_stop": "category",
+            "to_stop": "category",
+            "from_geometry": "category",
+            "to_geometry": "category",
             "from_time": str,
             "to_time": str,
-            "valid": int,
+            "valid": "int8",
         },
         parse_dates=["date"],
     )
@@ -68,15 +72,15 @@ def load_dwell_times(path: str) -> pd.DataFrame:
     df = pd.read_csv(
         path,
         dtype={
-            "lau": str,
+            "lau": "category",
             "date": str,
-            "line": str,
+            "line": "category",
             "trip": str,
-            "stop": str,
-            "geometry": str,
+            "stop": "category",
+            "geometry": "category",
             "from_time": str,
             "to_time": str,
-            "valid": int,
+            "valid": "int8",
         },
         parse_dates=["date"],
     )
@@ -139,6 +143,34 @@ def mark_broken_dwell_times(
     return tt, dt
 
 
+def stream_and_write_trajectories(
+    path: str, out_path: str, route_map: pd.DataFrame
+) -> None:
+    logging.info(f"Processing trajectories from {path}")
+    writer = None
+    for chunk in pd.read_csv(
+        path,
+        compression="gzip",
+        chunksize=500_000,
+        dtype={
+            "lau": str,
+            "date": str,
+            "line": str,
+            "trip": str,
+            "geometry": str,
+            "time": str,
+        },
+    ):
+        chunk["date"] = pd.to_datetime(chunk["date"], format="%Y-%m-%d", utc=True)
+        chunk = pd.merge(chunk, route_map, on=["date", "line", "trip"], how="inner")
+        table = pa.Table.from_pandas(chunk)
+        if writer is None:
+            writer = pq.ParquetWriter(out_path, table.schema)
+        writer.write_table(table)
+    if writer:
+        writer.close()
+
+
 def add_route_ids(
     tt: pd.DataFrame, dt: pd.DataFrame
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -178,6 +210,11 @@ dt = add_dwell_time_columns(dt)
 
 tt, dt = mark_broken_dwell_times(tt, dt)
 tt, dt = add_route_ids(tt, dt)
+
+route_map = tt[["date", "line", "trip", "route", "route_id"]].drop_duplicates()
+
+logging.info("Merging route ids into trajectories")
+stream_and_write_trajectories(args.traj_input, args.traj_output, route_map)
 
 logging.info(f"Writing travel times to {args.tt_output}")
 tt.to_parquet(args.tt_output)

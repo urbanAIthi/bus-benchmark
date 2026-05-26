@@ -9,6 +9,7 @@ from datetime import date
 from glob import glob
 
 import pandas as pd
+import pyarrow.parquet as pq
 from tqdm import tqdm
 from dotenv import load_dotenv
 
@@ -293,13 +294,21 @@ def run_export(
         dt.to_csv(dt_out, index=False)
 
         # Trajectories
-        traj_path = os.path.join(TRAJECTORY_DIR, f"{lau}.csv.gz")
-        traj = pd.read_csv(traj_path, compression="gzip", dtype=str)
-        valid_trips = tt[["date", "line", "trip"]].drop_duplicates()
-        valid_trips["date"] = valid_trips["date"].dt.strftime("%Y-%m-%d")
-        traj = pd.merge(traj, valid_trips, on=["date", "line", "trip"], how="inner")
+        traj_path = os.path.join(TRAJECTORY_DIR, f"{lau}.parquet")
         traj_out = os.path.join(EXPORT_TRAJECTORIES_DIR, f"{lau}.csv")
-        traj.to_csv(traj_out, index=False)
+        pf = pq.ParquetFile(traj_path)
+        first_chunk = True
+        for batch in pf.iter_batches(batch_size=500_000):
+            chunk = batch.to_pandas()
+            chunk = pd.merge(chunk, valid_trips, on=["date", "line", "trip"], how="inner")
+            chunk = pd.merge(chunk, routes, on=["route", "route_id"], how="inner")
+            if chunk.empty:
+                continue
+            chunk["date"] = chunk["date"].dt.strftime("%Y-%m-%d")
+            chunk["route"] = chunk["route_id"]
+            chunk = chunk[["lau", "date", "line", "trip", "route", "geometry", "time"]]
+            chunk.to_csv(traj_out, index=False, mode="w" if first_chunk else "a", header=first_chunk)
+            first_chunk = False
 
     print("Export complete.")
 
