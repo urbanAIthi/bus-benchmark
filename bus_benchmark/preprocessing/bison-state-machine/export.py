@@ -19,6 +19,7 @@ conn = psycopg2.connect(
 cursor = conn.cursor()
 cursor.execute("SET work_mem = '1GB'")
 
+query_template = """
     copy (
         select id, lau_id, timestamp, type, operatingday, dataownercode, lineplanningnumber,
             journeynumber, reinforcementnumber, userstopcode, passagesequencenumber, st_astext(geom) as geom

@@ -105,8 +105,7 @@ def summarize_trips(path: str) -> pd.DataFrame:
     )
 
     df = df_uncleaned[
-        df_uncleaned["valid"]
-        & df_uncleaned["valid_dwell_times"]
+        df_uncleaned["valid_dwell_times"]
         & df_uncleaned["from_geometry"].notna()
         & df_uncleaned["to_geometry"].notna()
     ]
@@ -269,12 +268,13 @@ def run_export(
         tt_path = os.path.join(TRAVEL_TIME_DIR, f"{lau}.parquet")
         tt = pd.read_parquet(tt_path)
         tt["has_geometry"] = tt["from_geometry"].notna() & tt["to_geometry"].notna()
-        tt = tt[tt["valid"] & tt["valid_dwell_times"]]
+        tt = tt[tt["valid_dwell_times"]]
         has_geo = tt.groupby(
             ["line", "route", "route_id", "trip", "date"]
         )["has_geometry"].transform("all")
         tt = tt.loc[has_geo]
         tt = pd.merge(tt, routes, on=["route", "route_id"], how="inner")
+        valid_trips = tt[["date", "line", "trip"]].drop_duplicates()
         tt = clean_for_output(tt)
         tt_out = os.path.join(EXPORT_TRAVEL_TIMES_DIR, f"{lau}.csv")
         tt.to_csv(tt_out, index=False)
@@ -283,7 +283,7 @@ def run_export(
         dt_path = os.path.join(DWELL_TIME_DIR, f"{lau}.parquet")
         dt = pd.read_parquet(dt_path)
         dt["has_geometry"] = dt["geometry"].notna()
-        dt = dt[dt["valid"] & dt["valid_dwell_times"] & dt["route_id"].notna()]
+        dt = dt[dt["valid_dwell_times"] & dt["route_id"].notna()]
         has_geo = dt.groupby(
             ["line", "route", "route_id", "trip", "date"]
         )["has_geometry"].transform("all")
