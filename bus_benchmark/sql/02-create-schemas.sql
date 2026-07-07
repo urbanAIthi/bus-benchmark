@@ -112,3 +112,4 @@ CREATE INDEX kv7_localservicegrouppasstime_timestamp_idx ON kv7_localservicegrou
 CREATE INDEX kv7_localservicegrouppasstime_dataownercode_idx ON kv7_localservicegrouppasstime USING btree (dataownercode);
 CREATE INDEX kv7_localservicegrouppasstime_lineplanningnumber_idx ON kv7_localservicegrouppasstime USING btree (lineplanningnumber);
 CREATE INDEX kv7_localservicegrouppasstime_journeynumber_idx ON kv7_localservicegrouppasstime USING btree (journeynumber);
+CREATE INDEX kv7_localservicegrouppasstime_lookup_idx ON kv7_localservicegrouppasstime USING btree (dataownercode, lineplanningnumber, journeynumber, timestamp);

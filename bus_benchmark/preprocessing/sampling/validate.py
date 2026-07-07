@@ -17,6 +17,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--tt-input", type=str, required=True)
 parser.add_argument("--dt-input", type=str, required=True)
 parser.add_argument("--traj-input", type=str, required=True)
+parser.add_argument("--routes-input", type=str, required=True)
+parser.add_argument("--route-dict-input", type=str, required=True)
 parser.add_argument("--tt-output", type=str, required=True)
 parser.add_argument("--dt-output", type=str, required=True)
 parser.add_argument("--traj-output", type=str, required=True)
@@ -148,21 +150,26 @@ def stream_and_write_trajectories(
 ) -> None:
     logging.info(f"Processing trajectories from {path}")
     writer = None
+    str_cols = ["lau", "line", "trip", "geometry", "time"]
     for chunk in pd.read_csv(
         path,
         compression="gzip",
         chunksize=500_000,
         dtype={
-            "lau": str,
+            "lau": "string",
             "date": str,
-            "line": str,
-            "trip": str,
-            "geometry": str,
-            "time": str,
+            "line": "string",
+            "trip": "string",
+            "geometry": "string",
+            "time": "string",
         },
     ):
         chunk["date"] = pd.to_datetime(chunk["date"], format="%Y-%m-%d", utc=True)
-        chunk = pd.merge(chunk, route_map, on=["date", "line", "trip"], how="inner")
+        chunk = pd.merge(chunk, route_map, on=["date", "line", "trip"], how="left")
+        if chunk.empty:
+            continue
+        for col in str_cols:
+            chunk[col] = chunk[col].astype("string")
         table = pa.Table.from_pandas(chunk)
         if writer is None:
             writer = pq.ParquetWriter(out_path, table.schema)
@@ -171,50 +178,44 @@ def stream_and_write_trajectories(
         writer.close()
 
 
+def load_routes(path: str, dict_path: str) -> pd.DataFrame:
+    logging.info(f"Loading routes from {path} (dict {dict_path})")
+    routes = pd.read_csv(
+        path,
+        compression="gzip",
+        dtype={"line": str, "trip": str, "route_id": "Int32"},
+    )
+    routes["date"] = pd.to_datetime(routes["date"], format="%Y-%m-%d", utc=True)
+    route_dict = pd.read_csv(
+        dict_path,
+        compression="gzip",
+        dtype={"route_id": "Int32", "route": "category"},
+    )
+    routes = pd.merge(routes, route_dict, on="route_id", how="left")
+    return routes
+
+
 def add_route_ids(
-    tt: pd.DataFrame, dt: pd.DataFrame
+    tt: pd.DataFrame, dt: pd.DataFrame, routes: pd.DataFrame
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    def get_full_tt_route(pair):
-        from_stop, to_stop = zip(*pair)
-        group_id = ">".join(from_stop) + ">" + to_stop[-1]
-        return pd.Series(group_id, index=pair.index)
-
-    logging.info("Gathering link tuples")
-    tt["link_tuple"] = list(zip(tt["from_stop"], tt["to_stop"]))
-
-    logging.info("Aggregating route sequences")
-    tt["route"] = tt.groupby(["date", "line", "trip"])["link_tuple"].transform(
-        get_full_tt_route
-    )
-
-    logging.info("Assigning route ids")
-    codes, _ = pd.factorize(tt["route"], sort=True)
-    tt["route_id"] = codes
-
-    logging.info("Merging route ids into dwell times")
-    dt = pd.merge(
-        dt,
-        tt[["date", "line", "trip", "route", "route_id"]].drop_duplicates(),
-        on=["date", "line", "trip"],
-        how="left",
-    )
-
-    return tt.drop(columns=["link_tuple"]), dt
+    logging.info("Merging route ids into travel times and dwell times")
+    tt = pd.merge(tt, routes, on=["date", "line", "trip"], how="left")
+    dt = pd.merge(dt, routes, on=["date", "line", "trip"], how="left")
+    return tt, dt
 
 
 tt = load_travel_times(args.tt_input)
 dt = load_dwell_times(args.dt_input)
+routes = load_routes(args.routes_input, args.route_dict_input)
 
 tt = add_travel_time_columns(tt)
 dt = add_dwell_time_columns(dt)
 
 tt, dt = mark_broken_dwell_times(tt, dt)
-tt, dt = add_route_ids(tt, dt)
-
-route_map = tt[["date", "line", "trip", "route", "route_id"]].drop_duplicates()
+tt, dt = add_route_ids(tt, dt, routes)
 
 logging.info("Merging route ids into trajectories")
-stream_and_write_trajectories(args.traj_input, args.traj_output, route_map)
+stream_and_write_trajectories(args.traj_input, args.traj_output, routes)
 
 logging.info(f"Writing travel times to {args.tt_output}")
 tt.to_parquet(args.tt_output)

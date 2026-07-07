@@ -108,9 +108,10 @@ def summarize_trips(path: str) -> pd.DataFrame:
         df_uncleaned["valid_dwell_times"]
         & df_uncleaned["from_geometry"].notna()
         & df_uncleaned["to_geometry"].notna()
+        & df_uncleaned["route_id"].notna()
     ]
     has_geometry_mask = df.groupby(
-        ["line", "route", "route_id", "trip", "date"]
+        ["line", "trip", "date"]
     )["has_geometry"].transform("all")
     df = df.loc[has_geometry_mask].copy()
 
@@ -270,28 +271,36 @@ def run_export(
         tt["has_geometry"] = tt["from_geometry"].notna() & tt["to_geometry"].notna()
         tt = tt[tt["valid_dwell_times"]]
         has_geo = tt.groupby(
-            ["line", "route", "route_id", "trip", "date"]
+            ["line", "trip", "date"]
         )["has_geometry"].transform("all")
         tt = tt.loc[has_geo]
-        tt = pd.merge(tt, routes, on=["route", "route_id"], how="inner")
+        tt_with_route = pd.merge(
+            tt[tt["route_id"].notna()], routes, on=["route", "route_id"], how="inner"
+        )
+        tt_no_route = tt[tt["route_id"].isna()]
+        tt = pd.concat([tt_with_route, tt_no_route], ignore_index=True)
         valid_trips = tt[["date", "line", "trip"]].drop_duplicates()
         tt = clean_for_output(tt)
         tt_out = os.path.join(EXPORT_TRAVEL_TIMES_DIR, f"{lau}.csv")
-        tt.to_csv(tt_out, index=False)
+        tt.to_csv(tt_out, index=False, na_rep="", float_format="%.0f")
 
         # Dwell times
         dt_path = os.path.join(DWELL_TIME_DIR, f"{lau}.parquet")
         dt = pd.read_parquet(dt_path)
         dt["has_geometry"] = dt["geometry"].notna()
-        dt = dt[dt["valid_dwell_times"] & dt["route_id"].notna()]
+        dt = dt[dt["valid_dwell_times"]]
         has_geo = dt.groupby(
-            ["line", "route", "route_id", "trip", "date"]
+            ["line", "trip", "date"]
         )["has_geometry"].transform("all")
         dt = dt.loc[has_geo]
-        dt = pd.merge(dt, routes, on=["route", "route_id"], how="inner")
+        dt_with_route = pd.merge(
+            dt[dt["route_id"].notna()], routes, on=["route", "route_id"], how="inner"
+        )
+        dt_no_route = dt[dt["route_id"].isna()]
+        dt = pd.concat([dt_with_route, dt_no_route], ignore_index=True)
         dt = clean_for_output(dt)
         dt_out = os.path.join(EXPORT_DWELL_TIMES_DIR, f"{lau}.csv")
-        dt.to_csv(dt_out, index=False)
+        dt.to_csv(dt_out, index=False, na_rep="", float_format="%.0f")
 
         # Trajectories
         traj_path = os.path.join(TRAJECTORY_DIR, f"{lau}.parquet")
@@ -301,13 +310,27 @@ def run_export(
         for batch in pf.iter_batches(batch_size=500_000):
             chunk = batch.to_pandas()
             chunk = pd.merge(chunk, valid_trips, on=["date", "line", "trip"], how="inner")
-            chunk = pd.merge(chunk, routes, on=["route", "route_id"], how="inner")
+            chunk_with_route = pd.merge(
+                chunk[chunk["route_id"].notna()],
+                routes,
+                on=["route", "route_id"],
+                how="inner",
+            )
+            chunk_no_route = chunk[chunk["route_id"].isna()]
+            chunk = pd.concat([chunk_with_route, chunk_no_route], ignore_index=True)
             if chunk.empty:
                 continue
             chunk["date"] = chunk["date"].dt.strftime("%Y-%m-%d")
             chunk["route"] = chunk["route_id"]
             chunk = chunk[["lau", "date", "line", "trip", "route", "geometry", "time"]]
-            chunk.to_csv(traj_out, index=False, mode="w" if first_chunk else "a", header=first_chunk)
+            chunk.to_csv(
+                traj_out,
+                index=False,
+                mode="w" if first_chunk else "a",
+                header=first_chunk,
+                na_rep="",
+                float_format="%.0f",
+            )
             first_chunk = False
 
     print("Export complete.")
