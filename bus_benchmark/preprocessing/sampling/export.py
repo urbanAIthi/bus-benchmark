@@ -1,6 +1,8 @@
 """
-Sample LAUs for bus benchmark based on route-level coverage and trip counts
-and export filtered travel-time and dwell-time CSVs for the sampled LAUs.
+Export pipeline for the bus benchmark: summarize route-level statistics,
+optionally sample LAUs based on coverage and trip counts, and export filtered
+travel-time and dwell-time CSVs. Sampling is an optional stage that narrows the
+set of exported LAUs, without it, every municipality on disk is exported.
 """
 
 import argparse
@@ -29,6 +31,7 @@ SUMMARY_PATH = os.environ.get("SUMMARY_PATH", "")
 SAMPLED_LAUS_PATH = os.environ.get("SAMPLED_LAUS_PATH", "")
 
 LAU_WHITELIST = os.getenv("LAU_WHITELIST", "").split(" ")
+LAU_IDS = os.getenv("LAU_IDS", "").split(" ")
 
 MIN_COVERAGE = 0.5
 MIN_TRIP_COUNT = 100
@@ -223,17 +226,13 @@ def run_sample(summary_df: pd.DataFrame) -> pd.DataFrame:
 
 # Stage 3: Export
 
-def run_export(
-    summary_df: pd.DataFrame, sampled_laus_df: pd.DataFrame
-) -> None:
+def run_export(summary_df: pd.DataFrame, lau_codes: list[str]) -> None:
     """Stage 3: filter & export travel-time and dwell-time CSVs."""
     print("\n=== Stage 3: Export filtered data ===")
 
     os.makedirs(EXPORT_TRAVEL_TIMES_DIR, exist_ok=True)
     os.makedirs(EXPORT_DWELL_TIMES_DIR, exist_ok=True)
     os.makedirs(EXPORT_TRAJECTORIES_DIR, exist_ok=True)
-
-    lau_codes = sampled_laus_df["LAU CODE"].drop_duplicates().iloc[::-1]
 
     for lau in tqdm(lau_codes, desc="Exporting LAUs"):
         # Determine valid routes for this LAU
@@ -316,6 +315,15 @@ def run_export(
 
     print("Export complete.")
 
+
+def select_laus(all_laus: bool) -> list[str]:
+    """Returns LAUs to export."""
+    if all_laus:
+        return sorted(LAU_IDS)
+    print(f"Loading sampled LAUs from {SAMPLED_LAUS_PATH}")
+    sampled_laus_df = pd.read_csv(SAMPLED_LAUS_PATH)
+    return sampled_laus_df["LAU CODE"].drop_duplicates().iloc[::-1].tolist()
+
 # CLI
 
 def main():
@@ -338,12 +346,15 @@ def main():
         "--all", action="store_true",
         help="Run all three stages sequentially.",
     )
+    parser.add_argument(
+        "--all-laus", action="store_true",
+        help="Export every municipality on disk instead of the sampled subset.",
+    )
     args = parser.parse_args()
 
     run_all = args.all or not (args.summarize or args.sample or args.export)
 
     summary_df = None
-    sampled_laus_df = None
 
     if run_all or args.summarize:
         summary_df = run_summarize()
@@ -352,16 +363,13 @@ def main():
         if summary_df is None:
             print(f"Loading summary from {SUMMARY_PATH}")
             summary_df = pd.read_parquet(SUMMARY_PATH)
-        sampled_laus_df = run_sample(summary_df)
+        run_sample(summary_df)
 
     if run_all or args.export:
         if summary_df is None:
             print(f"Loading summary from {SUMMARY_PATH}")
             summary_df = pd.read_parquet(SUMMARY_PATH)
-        if sampled_laus_df is None:
-            print(f"Loading sampled LAUs from {SAMPLED_LAUS_PATH}")
-            sampled_laus_df = pd.read_csv(SAMPLED_LAUS_PATH)
-        run_export(summary_df, sampled_laus_df)
+        run_export(summary_df, select_laus(args.all_laus))
 
     print("\nDone.")
 
