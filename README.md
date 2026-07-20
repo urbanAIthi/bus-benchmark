@@ -1,6 +1,6 @@
 # A benchmark dataset for bus travel and dwell time prediction
 
-This repository contains the dataset for the paper "A Benchmark Dataset for Bus Travel and Dwell Time Prediction", written by Alexander Horn, Philip-Roman Adam and Stefanie Schmidtner and presented at IEEE ITSC 2025. The `v1` branch contains the code used to generate the version of the dataset ([10.5281/zenodo.15839004](https://doi.org/10.5281/zenodo.15839004)) that was published along the paper.
+This repository contains the dataset for the paper "A Benchmark Dataset for Bus Travel and Dwell Time Prediction", written by Alexander Horn, Philip-Roman Adam and Stefanie Schmidtner and presented at IEEE ITSC 2025. The `v1` branch contains the code used to generate the version of the dataset ([10.5281/zenodo.15839004](https://doi.org/10.5281/zenodo.15839004)) that was published along the paper. The `v3` branch contains an improved version which should be used for new research.
 
 ## Abstract
 
@@ -22,12 +22,14 @@ shp2pgsql -I -s 4326 LAU_RG_01M_2023_4326.shp lau_rg_01m_2023_4326 > sql/01-impo
 ```
 
 Run the following scripts in order:
+* Import LAUs and create schemas:  
+`sql/01-import-laus.sql` and `sql/02-create-schemas.sql`
 * Convert XML/CTX files to CSV:  
-`bus_benchmark/preprocessing/bison-importer/import-*-bulk.sh`
+`bus_benchmark/preprocessing/bison-importer/convert-*-all.sh`
 * Import CSV files into PostgreSQL:  
-`bus_benchmark/preprocessing/bison-importer/import-csvs-*.py`
-* Match tables with LAUs:  
-`sql/*.sql`
+`bus_benchmark/preprocessing/bison-importer/import-all.sh`
+* Assign data to LAUs:  
+`sql/04-filter-data.sql`
 * Export PostgreSQL tables to CSV files:  
 `bus_benchmark/preprocessing/bison-state-machine/export.py`
 * Convert KV6 logs into travel and dwell times:  
@@ -35,7 +37,7 @@ Run the following scripts in order:
 * Validate travel and dwell times:  
 `bus_benchmark/preprocessing/sampling/validate-all.sh`
 * Sample LAUs and export final travel and dwell time CSV files:  
-`bus_benchmark/preprocessing/sampling/sample.py`
+`bus_benchmark/preprocessing/sampling/export.py`
 
 ## CSV schema
 
