@@ -25,7 +25,6 @@ EXPORT_DWELL_TIMES_DIR=os.environ.get("KV6_EXPORT", "") + "/dwell_time"
 EXPORT_TRAJECTORIES_DIR=os.environ.get("KV6_EXPORT", "") + "/trajectory"
 NUTS_CSV_PATH = os.environ.get("NUTS_CSV_PATH", "")
 
-DUMMY_BLACKLIST_PATH = os.environ.get("DUMMY_BLACKLIST_PATH", "")
 SUMMARY_PATH = os.environ.get("SUMMARY_PATH", "")
 SAMPLED_LAUS_PATH = os.environ.get("SAMPLED_LAUS_PATH", "")
 
@@ -55,16 +54,6 @@ def calc_coverage(gp: pd.DataFrame) -> float:
         weeks_seen = gp.loc[gp["year"] == yr, "week"].nunique()
         covs.append(weeks_seen / iso_weeks_in_year(yr))
     return min(covs)
-
-
-def load_dummy_stops() -> pd.Series:
-    dummy = pd.read_csv(DUMMY_BLACKLIST_PATH, dtype=str)
-    return dummy["dataownercode"] + ":" + dummy["userstopcode"]
-
-
-def route_has_dummy_stop(row: pd.Series, dummy_stops: pd.Series) -> bool:
-    stops = row["route"].split(">")
-    return dummy_stops.isin(stops).any()
 
 
 def clean_for_output(df: pd.DataFrame) -> pd.DataFrame:
@@ -192,15 +181,12 @@ def run_sample(summary_df: pd.DataFrame) -> pd.DataFrame:
     nuts = pd.read_csv(NUTS_CSV_PATH, sep=";")
     nuts["DEGURBA_EXT"] = nuts.apply(get_stratum, axis=1)
 
-    dummy_stops = load_dummy_stops()
-
     tmp = summary_df[
         (summary_df["lau_coverage"] >= MIN_COVERAGE)
         & (summary_df["line_coverage"] >= MIN_COVERAGE)
         & (summary_df["trip_count"] >= MIN_TRIP_COUNT)
         & (summary_df["link_count"] >= MIN_LINK_COUNT)
     ]
-    tmp = tmp[~tmp.apply(route_has_dummy_stop, axis=1, dummy_stops=dummy_stops)]
     tmp["retention_rate"] = (
         tmp.groupby("lau")["trip_count"].transform("sum")
         / tmp["uncleaned_total_trip_count"]
@@ -247,8 +233,6 @@ def run_export(
     os.makedirs(EXPORT_DWELL_TIMES_DIR, exist_ok=True)
     os.makedirs(EXPORT_TRAJECTORIES_DIR, exist_ok=True)
 
-    dummy_stops = load_dummy_stops()
-
     lau_codes = sampled_laus_df["LAU CODE"].drop_duplicates().iloc[::-1]
 
     for lau in tqdm(lau_codes, desc="Exporting LAUs"):
@@ -259,9 +243,6 @@ def run_export(
             & (summary_df["line_coverage"] >= MIN_COVERAGE)
             & (summary_df["trip_count"] >= MIN_TRIP_COUNT)
             & (summary_df["link_count"] >= MIN_LINK_COUNT)
-        ]
-        routes = routes[
-            ~routes.apply(route_has_dummy_stop, axis=1, dummy_stops=dummy_stops)
         ]
         routes = routes[["route", "route_id"]].drop_duplicates()
 

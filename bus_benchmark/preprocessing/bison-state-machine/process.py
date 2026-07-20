@@ -61,9 +61,24 @@ parser.add_argument("--travel-output", required=True)
 parser.add_argument("--dwell-output", required=True)
 parser.add_argument("--trajectory-output", required=True)
 parser.add_argument("--lau", required=False, help="Only keep records for this LAU")
+parser.add_argument("--stop-blacklist", required=False, help="CSV of stops to ignore")
 args = parser.parse_args()
 
 logging.getLogger().setLevel(logging.CRITICAL)
+
+
+def load_stop_blacklist(path: str) -> set:
+    """Load blacklisted stops as a set of ``dataownercode:userstopcode``."""
+    if not path:
+        return set()
+    with open(path, newline="") as f:
+        return {
+            f"{row['dataownercode']}:{row['userstopcode']}"
+            for row in csv.DictReader(f)
+        }
+
+
+STOP_BLACKLIST = load_stop_blacklist(args.stop_blacklist)
 
 
 def derive_times(
@@ -134,6 +149,12 @@ def derive_times(
         if traj_entry != last_trajectory:
             yield "trajectory", traj_entry
             last_trajectory = traj_entry
+
+        # bridge over blacklisted stops (e.g. movable-bridge waypoints):
+        # keep their trajectory GPS point but treat them as non-stop events so
+        # travel/dwell segments span across them as if they were never inserted
+        if f"{row['dataownercode']}:{row['userstopcode']}" in STOP_BLACKLIST:
+            continue
 
         # ignore all types which are not handled by the state machine
         if row["type"] not in ["ARRIVAL", "DEPARTURE", "ONSTOP"]:
