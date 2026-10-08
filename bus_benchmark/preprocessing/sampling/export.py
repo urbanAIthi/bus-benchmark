@@ -125,8 +125,17 @@ def summarize_trips(path: str) -> pd.DataFrame:
         .reset_index(name="line_coverage")
     )
 
-    link_counts = df[["line", "route", "route_id"]].drop_duplicates()
-    link_counts["link_count"] = link_counts["route"].str.count(">") + 1
+    # Count the links we actually observed in this LAU rather than the stops the planned
+    # route plots. A route we failed to reconstruct then costs the route label its
+    # detail, instead of dropping every trip that runs on it: the planned string is a
+    # description of the whole journey, while the trips here only ever cross one LAU.
+    link_counts = (
+        df[["line", "route", "route_id", "from_stop", "to_stop"]]
+        .drop_duplicates()
+        .groupby(["line", "route", "route_id"], observed=True)
+        .size()
+        .reset_index(name="link_count")
+    )
 
     trip_counts = df[["date", "line", "route", "route_id", "trip"]].drop_duplicates()
     trip_counts = (
@@ -138,7 +147,10 @@ def summarize_trips(path: str) -> pd.DataFrame:
     route_info = (
         line_coverage
         .merge(link_counts, on=["line"])
-        .merge(trip_counts, on=["route", "route_id"])
+        # trip_counts carries `line` too, so joining without it leaves pandas to suffix
+        # the column into line_x/line_y and, where several lines share a route, pairs
+        # each line with every other line's trip count
+        .merge(trip_counts, on=["line", "route", "route_id"])
     )
 
     total_trip_count = df[["date", "line", "route", "route_id", "trip"]].drop_duplicates()
