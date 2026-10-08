@@ -4,6 +4,10 @@ import lzma
 import gzip
 from typing import Dict, Generator, Iterable, Tuple, Any
 
+# KV7turbo_planning carries the timetable itself, KV7turbo_calendar the service level
+# validity that says which of the timetable's variants applies on a given operating day
+KV7_LABELS = ("KV7turbo_planning", "KV7turbo_calendar")
+
 # constants for CSV fieldnames by type
 FIELDNAMES_LOCALSERVICEGROUPPASSTIME = [
     "timestamp",
@@ -68,6 +72,13 @@ FIELDNAMES_LINE = [
     "linetextcolor",
 ]
 
+FIELDNAMES_LOCALSERVICEGROUPVALIDITY = [
+    "timestamp",
+    "dataownercode",
+    "localservicelevelcode",
+    "operationdate",
+]
+
 
 def read_kv7(path: str) -> Generator[Tuple[str, str, Dict[str, Any]], None, None]:
     """
@@ -78,7 +89,7 @@ def read_kv7(path: str) -> Generator[Tuple[str, str, Dict[str, Any]], None, None
             reader = csv.reader(f)
             for _, _, ctx, _ in reader:
                 data = parse_ctx_message(ctx)
-                if data["meta"]["label"] != "KV7turbo_planning":
+                if data["meta"]["label"] not in KV7_LABELS:
                     print(f"Invalid message type: {data['meta']['label']}")
                     continue
                 for table in data["tables"]:
@@ -104,6 +115,8 @@ def write_kv7_to_csv(
         fieldnames = FIELDNAMES_TIMINGPOINT
     elif desired_type == "LINE":
         fieldnames = FIELDNAMES_LINE
+    elif desired_type == "LOCALSERVICEGROUPVALIDITY":
+        fieldnames = FIELDNAMES_LOCALSERVICEGROUPVALIDITY
     else:
         raise ValueError(f"Unknown desired type: {desired_type}")
 
@@ -183,6 +196,13 @@ def write_kv7_to_csv(
                     entry.get("TransportType"),
                     entry.get("LineColor"),
                     entry.get("LineTextColor"),
+                ]
+            elif type == "LOCALSERVICEGROUPVALIDITY":
+                row = [
+                    timestamp,
+                    entry.get("DataOwnerCode"),
+                    entry.get("LocalServiceLevelCode"),
+                    entry.get("OperationDate"),
                 ]
             else:
                 print(f"Unknown type: {type}")

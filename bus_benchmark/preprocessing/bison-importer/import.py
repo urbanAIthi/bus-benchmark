@@ -74,6 +74,12 @@ TABLE_COLUMNS: dict[str, list[str]] = {
         "quaycode",
         "plannedmonitored",
     ],
+    "kv7_localservicegroupvalidity": [
+        "timestamp",
+        "dataownercode",
+        "localservicelevelcode",
+        "operationdate",
+    ],
     "kv7_timingpoint": [
         "timestamp",
         "dataownercode",

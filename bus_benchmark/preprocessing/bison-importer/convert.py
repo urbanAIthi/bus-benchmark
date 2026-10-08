@@ -10,10 +10,24 @@ import argparse
 import os
 import pathlib
 
+# the two KV7 feeds are archived separately and share no tables, so which one we are
+# reading decides what to write out
+KV7_TABLES = {
+    "kv7": [
+        "USERTIMINGPOINT",
+        "TIMINGPOINT",
+        "LINE",
+        "LOCALSERVICEGROUPPASSTIME",
+    ],
+    "kv7calendar": [
+        "LOCALSERVICEGROUPVALIDITY",
+    ],
+}
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--file", required=True, help="Path to .csv.xz file")
 parser.add_argument(
-    "--mode", choices=["kv6", "kv7"], required=True, help="Interface type"
+    "--mode", choices=["kv6", "kv7", "kv7calendar"], required=True, help="Interface type"
 )
 parser.add_argument("--filters", nargs="+", help="Only import these message types")
 parser.add_argument("--progress", action="store_true", help="Show progress bar")
@@ -51,15 +65,10 @@ if args.mode == "kv6":
         output_file,
     )
     print(f"KV6 data written to: {output_file}")
-elif args.mode == "kv7":
+elif args.mode in KV7_TABLES:
     input_filename = os.path.basename(args.file)
     base_name = os.path.splitext(os.path.splitext(input_filename)[0])[0]
-    for table_type in [
-        "USERTIMINGPOINT",
-        "TIMINGPOINT",
-        "LINE",
-        "LOCALSERVICEGROUPPASSTIME",
-    ]:
+    for table_type in KV7_TABLES[args.mode]:
         table_dir = os.path.join(args.output_dir, table_type)
         pathlib.Path(table_dir).mkdir(parents=True, exist_ok=True)
         output_file = os.path.join(table_dir, f"{base_name}.csv.gz")

@@ -113,3 +113,20 @@ CREATE INDEX kv7_localservicegrouppasstime_dataownercode_idx ON kv7_localservice
 CREATE INDEX kv7_localservicegrouppasstime_lineplanningnumber_idx ON kv7_localservicegrouppasstime USING btree (lineplanningnumber);
 CREATE INDEX kv7_localservicegrouppasstime_journeynumber_idx ON kv7_localservicegrouppasstime USING btree (journeynumber);
 CREATE INDEX kv7_localservicegrouppasstime_lookup_idx ON kv7_localservicegrouppasstime USING btree (dataownercode, lineplanningnumber, journeynumber, timestamp);
+
+-- Which of a journey's timetable variants applies on a given operating day. Lives in the
+-- KV7turbo_calendar feed rather than KV7turbo_planning. Operators publish their calendar
+-- every night for roughly the next 30 days, starting at the publication day (now and then
+-- a day or two before it), and smaller publications in between repeat only some service
+-- levels. Later publications do reassign dates between service levels, so readers must
+-- take the newest publication of a service level preceding the day in question rather
+-- than the union of every publication.
+CREATE UNLOGGED TABLE kv7_localservicegroupvalidity (
+    timestamp TIMESTAMP WITH TIME ZONE,
+    dataownercode VARCHAR(10),
+    localservicelevelcode VARCHAR(10),
+    operationdate DATE
+);
+
+CREATE INDEX kv7_localservicegroupvalidity_level_idx ON kv7_localservicegroupvalidity USING btree (dataownercode, localservicelevelcode, timestamp DESC);
+CREATE INDEX kv7_localservicegroupvalidity_lookup_idx ON kv7_localservicegroupvalidity USING btree (dataownercode, localservicelevelcode, operationdate, timestamp DESC);
