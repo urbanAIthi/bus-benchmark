@@ -35,27 +35,6 @@ CREATE INDEX kv6_csv_reinforcementnumber_idx ON kv6_csv USING btree (reinforceme
 
 CREATE TYPE e9_transporttype AS enum ('TRAIN', 'BUS', 'METRO', 'TRAM', 'BOAT');
 
-CREATE UNLOGGED TABLE kv7_usertimingpoint (
-    timestamp TIMESTAMP WITH TIME ZONE,
-    dataownercode VARCHAR(10),
-    userstopcode VARCHAR(10),
-    timingpointdataownercode VARCHAR(10),
-    timingpointcode VARCHAR(10),
-    getin BOOLEAN,
-    getout BOOLEAN
-);
-
-CREATE UNLOGGED TABLE kv7_timingpoint (
-    timestamp TIMESTAMP WITH TIME ZONE,
-    dataownercode VARCHAR(10),
-    timingpointcode VARCHAR(10),
-    timingpointname VARCHAR(50),
-    timingpointtown VARCHAR(50),
-    location GEOMETRY(Point, 28992),
-    stopareacode VARCHAR(10),
-    location_wgs84 GEOMETRY(Point, 4326) GENERATED ALWAYS AS (ST_Transform(location, 4326)) STORED
-);
-
 CREATE UNLOGGED TABLE kv7_line (
     timestamp TIMESTAMP WITH TIME ZONE,
     dataownercode VARCHAR(10),

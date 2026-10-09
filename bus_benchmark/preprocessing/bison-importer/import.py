@@ -74,24 +74,6 @@ TABLE_COLUMNS: dict[str, list[str]] = {
         "localservicelevelcode",
         "operationdate",
     ],
-    "kv7_timingpoint": [
-        "timestamp",
-        "dataownercode",
-        "timingpointcode",
-        "timingpointname",
-        "timingpointtown",
-        "location",
-        "stopareacode",
-    ],
-    "kv7_usertimingpoint": [
-        "timestamp",
-        "dataownercode",
-        "userstopcode",
-        "timingpointdataownercode",
-        "timingpointcode",
-        "getin",
-        "getout",
-    ],
 }
 
 

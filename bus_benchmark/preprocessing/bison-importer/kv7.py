@@ -37,26 +37,6 @@ FIELDNAMES_LOCALSERVICEGROUPPASSTIME = [
     "plannedmonitored",
 ]
 
-FIELDNAMES_USERTIMINGPOINT = [
-    "timestamp",
-    "dataownercode",
-    "userstopcode",
-    "timingpointdataownercode",
-    "timingpointcode",
-    "getin",
-    "getout",
-]
-
-FIELDNAMES_TIMINGPOINT = [
-    "timestamp",
-    "dataownercode",
-    "timingpointcode",
-    "timingpointname",
-    "timingpointtown",
-    "location",
-    "stopareacode",
-]
-
 FIELDNAMES_LINE = [
     "timestamp",
     "dataownercode",
@@ -106,10 +86,6 @@ def write_kv7_to_csv(
     """
     if desired_type == "LOCALSERVICEGROUPPASSTIME":
         fieldnames = FIELDNAMES_LOCALSERVICEGROUPPASSTIME
-    elif desired_type == "USERTIMINGPOINT":
-        fieldnames = FIELDNAMES_USERTIMINGPOINT
-    elif desired_type == "TIMINGPOINT":
-        fieldnames = FIELDNAMES_TIMINGPOINT
     elif desired_type == "LINE":
         fieldnames = FIELDNAMES_LINE
     elif desired_type == "LOCALSERVICEGROUPVALIDITY":
@@ -149,33 +125,6 @@ def write_kv7_to_csv(
                     # the feed spells this column Quaycode, as the KV78turbo definitions do
                     entry.get("Quaycode") or entry.get("QuayCode"),
                     entry.get("PlannedMonitored"),
-                ]
-            elif type == "USERTIMINGPOINT":
-                row = [
-                    timestamp,
-                    entry.get("DataOwnerCode"),
-                    entry.get("UserStopCode"),
-                    entry.get("TimingPointDataOwnerCode"),
-                    entry.get("TimingPointCode"),
-                    entry.get("GetIn"),
-                    entry.get("GetOut"),
-                ]
-            elif type == "TIMINGPOINT":
-                if (
-                    entry.get("LocationX_EW") is not None
-                    and entry.get("LocationY_NS") is not None
-                ):
-                    point = f"POINT({entry.get('LocationX_EW')} {entry.get('LocationY_NS')})"
-                else:
-                    point = None
-                row = [
-                    timestamp,
-                    entry.get("DataOwnerCode"),
-                    entry.get("TimingPointCode"),
-                    entry.get("TimingPointName"),
-                    entry.get("TimingPointTown"),
-                    point,
-                    entry.get("StopAreaCode"),
                 ]
             elif type == "LINE":
                 row = [

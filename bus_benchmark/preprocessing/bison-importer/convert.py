@@ -14,8 +14,6 @@ import pathlib
 # reading decides what to write out
 KV7_TABLES = {
     "kv7": [
-        "USERTIMINGPOINT",
-        "TIMINGPOINT",
         "LINE",
         "LOCALSERVICEGROUPPASSTIME",
     ],

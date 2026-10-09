@@ -39,5 +39,5 @@ python ./import.py --mode kv6 --filters ARRIVAL DEPARTURE --file KV6posinfo_2021
 
 ### Importing KV7
 ```
-python ./import.py --mode kv7 --filters USERTIMINGPOINT TIMINGPOINT LINE --file KV7planning_2022-01-01.csv.xz
+python ./import.py --mode kv7 --filters LINE LOCALSERVICEGROUPPASSTIME --file KV7planning_2022-01-01.csv.xz
 ```

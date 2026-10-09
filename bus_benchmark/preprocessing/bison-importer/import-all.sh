@@ -14,9 +14,3 @@ uv run python "./import.py" --table kv7_localservicegrouppasstime --folder "$KV7
 
 echo "Importing kv7_localservicegroupvalidity"
 uv run python "./import.py" --table kv7_localservicegroupvalidity --folder "$KV7CAL_CSV/LOCALSERVICEGROUPVALIDITY/" --workers "$THREADS"
-
-echo "Importing kv7_timingpoint"
-uv run python "./import.py" --table kv7_timingpoint --folder "$KV7_CSV/TIMINGPOINT/" --workers "$THREADS"
-
-echo "Importing kv7_usertimingpoint"
-uv run python "./import.py" --table kv7_usertimingpoint --folder "$KV7_CSV/USERTIMINGPOINT/" --workers "$THREADS"
