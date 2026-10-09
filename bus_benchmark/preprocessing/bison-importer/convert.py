@@ -72,7 +72,8 @@ elif args.mode in KV7_TABLES:
         output_file = os.path.join(table_dir, f"{base_name}.csv.gz")
         write_kv7_to_csv(
             tqdm(
-                filter_kv7(read_kv7(args.file), args.filters), disable=not args.progress
+                filter_kv7(read_kv7(args.file, [table_type]), args.filters),
+                disable=not args.progress,
             ),
             output_file,
             table_type,

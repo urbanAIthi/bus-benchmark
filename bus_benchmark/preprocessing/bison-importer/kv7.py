@@ -1,8 +1,9 @@
 from ctx import parse_ctx_message
+from collections import Counter
 import csv
 import lzma
 import gzip
-from typing import Dict, Generator, Iterable, Tuple, Any
+from typing import Dict, Generator, Iterable, Optional, Tuple, Any
 
 # KV7turbo_planning carries the timetable itself, KV7turbo_calendar the service level
 # validity that says which of the timetable's variants applies on a given operating day
@@ -57,10 +58,14 @@ FIELDNAMES_LOCALSERVICEGROUPVALIDITY = [
 ]
 
 
-def read_kv7(path: str) -> Generator[Tuple[str, str, Dict[str, Any]], None, None]:
+def read_kv7(
+    path: str, tables: Optional[Iterable[str]] = None
+) -> Generator[Tuple[str, str, Dict[str, Any]], None, None]:
     """
-    Read a .csv.xz file and yield a (timestamp, type, entry) tuple for every event.
+    Read a .csv.xz file and yield a (timestamp, type, entry) tuple for every event, or
+    only for those of the given tables. Prints how many of their rows were rejected.
     """
+    rejected = Counter()
     try:
         with lzma.open(path, "rt") as f:
             reader = csv.reader(f)
@@ -69,12 +74,19 @@ def read_kv7(path: str) -> Generator[Tuple[str, str, Dict[str, Any]], None, None
                 if data["meta"]["label"] not in KV7_LABELS:
                     print(f"Invalid message type: {data['meta']['label']}")
                     continue
+                for (table_name, reason), count in data["rejected"].items():
+                    if tables is None or table_name in tables:
+                        rejected[(table_name, reason)] += count
                 for table in data["tables"]:
+                    if tables is not None and table["meta"]["name"] not in tables:
+                        continue
                     for row in table["data"]:
                         yield data["meta"]["res2"], table["meta"]["name"], row
     except EOFError:
         # some files end unexpectedly, treat this as the end of the file
         print("Unexpected end of file")
+    for (table_name, reason), count in sorted(rejected.items()):
+        print(f"Rejected {count} {table_name} rows: {reason}")
 
 
 def write_kv7_to_csv(
