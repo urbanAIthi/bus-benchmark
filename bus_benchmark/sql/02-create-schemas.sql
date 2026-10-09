@@ -74,9 +74,12 @@ CREATE INDEX kv7_lineplanningnumber ON kv7_line USING btree (lineplanningnumber)
 CREATE INDEX kv7_transporttype ON kv7_line USING btree (transporttype);
 
 CREATE TYPE e7_journeystoptype AS ENUM ('FIRST', 'INTERMEDIATE', 'LAST');
-CREATE TYPE e21_showflexibletrip AS ENUM ('TRUE', 'FALSE', 'REALTIME');
-CREATE TYPE e22_monitoringerror AS ENUM ('GPS', 'GPRS', 'Radio', 'General', 'NoSystem', 'other', 'unknown');
 
+-- The columns from ShowFlexibleTrip to VehicleJourneyType are not imported. From
+-- 2023-10-24 to 2024-02-20 the OpenOV stream sends them in a different order than its
+-- label line states: the ShowFlexibleTrip column holds an unlabelled 1/0, the real
+-- ShowFlexibleTrip value follows one column later and the VehicleJourneyType column
+-- holds a quay code. Nothing downstream uses them.
 CREATE UNLOGGED TABLE kv7_localservicegrouppasstime (
     timestamp TIMESTAMP WITH TIME ZONE,
     dataownercode VARCHAR(10),
@@ -98,12 +101,6 @@ CREATE UNLOGGED TABLE kv7_localservicegrouppasstime (
     productformulatype INT,
     getin BOOLEAN,
     getout BOOLEAN,
-    showflexibletrip e21_showflexibletrip,
-    linedestcolor VARCHAR(6),
-    linedesttextcolor VARCHAR(6),
-    blockcode INT,
-    sequenceinblock INT,
-    vehiclejourneytype e22_monitoringerror,
     quaycode VARCHAR(20),
     plannedmonitored BOOLEAN
 );

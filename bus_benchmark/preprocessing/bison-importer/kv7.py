@@ -9,6 +9,9 @@ from typing import Dict, Generator, Iterable, Tuple, Any
 KV7_LABELS = ("KV7turbo_planning", "KV7turbo_calendar")
 
 # constants for CSV fieldnames by type
+# The columns from ShowFlexibleTrip to VehicleJourneyType are left out: from 2023-10-24
+# to 2024-02-20 the OpenOV stream sends them in a different order than its label line
+# states, and nothing downstream uses them.
 FIELDNAMES_LOCALSERVICEGROUPPASSTIME = [
     "timestamp",
     "dataownercode",
@@ -30,12 +33,6 @@ FIELDNAMES_LOCALSERVICEGROUPPASSTIME = [
     "productformulatype",
     "getin",
     "getout",
-    "showflexibletrip",
-    "linedestcolor",
-    "linedesttextcolor",
-    "blockcode",
-    "sequenceinblock",
-    "vehiclejourneytype",
     "quaycode",
     "plannedmonitored",
 ]
@@ -149,12 +146,6 @@ def write_kv7_to_csv(
                     entry.get("ProductFormulaType"),
                     entry.get("GetIn"),
                     entry.get("GetOut"),
-                    entry.get("ShowFlexibleTrip"),
-                    entry.get("LineDestColor"),
-                    entry.get("LineDestTextColor"),
-                    entry.get("BlockCode"),
-                    entry.get("SequenceInBlock"),
-                    None,  # entry.get('VehicleJourneyType')
                     entry.get("QuayCode"),
                     entry.get("PlannedMonitored"),
                 ]
