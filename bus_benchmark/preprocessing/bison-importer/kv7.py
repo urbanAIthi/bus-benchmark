@@ -146,7 +146,8 @@ def write_kv7_to_csv(
                     entry.get("ProductFormulaType"),
                     entry.get("GetIn"),
                     entry.get("GetOut"),
-                    entry.get("QuayCode"),
+                    # the feed spells this column Quaycode, as the KV78turbo definitions do
+                    entry.get("Quaycode") or entry.get("QuayCode"),
                     entry.get("PlannedMonitored"),
                 ]
             elif type == "USERTIMINGPOINT":

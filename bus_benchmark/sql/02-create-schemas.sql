@@ -91,7 +91,8 @@ CREATE UNLOGGED TABLE kv7_localservicegrouppasstime (
     userstopordernumber INT,
     journeypatterncode VARCHAR(100),
     linedirection INT,
-    destinationcode VARCHAR(10),
+    -- V10 in the spec, but 2024-08-07 carries codes of up to 13 characters
+    destinationcode VARCHAR(20),
     targetarrivaltime VARCHAR(8),
     targetdeparturetime VARCHAR(8),
     sidecode VARCHAR(10),
