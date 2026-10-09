@@ -166,6 +166,7 @@ def import_dataset(table: str, csv_folder: str, max_workers: int = 24) -> None:
         return
 
     desc = f"Importing {table}"
+    failed = []
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(_import_single_csv, f, table): f for f in files}
         with tqdm(total=len(futures), desc=desc) as pbar:
@@ -173,10 +174,19 @@ def import_dataset(table: str, csv_folder: str, max_workers: int = 24) -> None:
                 try:
                     fut.result()
                 except Exception as exc:
+                    failed.append(os.path.basename(futures[fut]))
                     print(
                         f"Error importing {os.path.basename(futures[fut])}: {exc}"
                     )
                 pbar.update(1)
+
+    # a file that fails to COPY is rolled back as a whole, so every failure is a day
+    # missing from the table; the other files are kept, but the run must not pass
+    if failed:
+        raise SystemExit(
+            f"{len(failed)} of {len(files)} files failed to import into {table}: "
+            + ", ".join(sorted(failed))
+        )
 
 
 if __name__ == "__main__":
