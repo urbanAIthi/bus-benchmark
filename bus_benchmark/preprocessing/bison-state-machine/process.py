@@ -7,10 +7,9 @@ Input files must be pre-sorted by journey identifiers.
 
 import csv
 import argparse
-import logging
 import gzip
 from tqdm import tqdm
-from typing import Iterator, Tuple, Literal
+from typing import Iterator, Optional, Tuple, Literal
 
 JOURNEY_IDENTIFIERS = [
     "operatingday",
@@ -31,7 +30,6 @@ TRAVEL_TIME_FIELDNAMES = [
     "to_geometry",
     "from_time",
     "to_time",
-    "valid",
 ]
 
 DWELL_TIME_FIELDNAMES = [
@@ -43,7 +41,6 @@ DWELL_TIME_FIELDNAMES = [
     "geometry",
     "from_time",
     "to_time",
-    "valid",
 ]
 
 TRAJECTORY_FIELDNAMES = [
@@ -55,6 +52,10 @@ TRAJECTORY_FIELDNAMES = [
     "time",
 ]
 
+# as per the KV6 spec, ONSTOP is an arrival event, repeated while the vehicle stands
+# at the stop
+STOP_EVENTS = {"ARRIVAL": "ARRIVAL", "ONSTOP": "ARRIVAL", "DEPARTURE": "DEPARTURE"}
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--input", required=True)
 parser.add_argument("--travel-output", required=True)
@@ -63,8 +64,6 @@ parser.add_argument("--trajectory-output", required=True)
 parser.add_argument("--lau", required=False, help="Only keep records for this LAU")
 parser.add_argument("--stop-blacklist", required=False, help="CSV of stops to ignore")
 args = parser.parse_args()
-
-logging.getLogger().setLevel(logging.CRITICAL)
 
 
 def load_stop_blacklist(path: str) -> set:
@@ -81,6 +80,92 @@ def load_stop_blacklist(path: str) -> set:
 STOP_BLACKLIST = load_stop_blacklist(args.stop_blacklist)
 
 
+def trip_fields(row: dict) -> dict:
+    """Columns identifying the trip a KV6 event belongs to."""
+    return {
+        "date": row["operatingday"],
+        "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
+        "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
+    }
+
+
+def group_visits(stop_events: list) -> list:
+    """
+    Groups a journey's stop events into visits, one per stop passage. A vehicle may
+    arrive at and depart from the same passage more than once (KV6 table 24, footnote
+    8), so all events of a passage belong to one visit until the next passage starts.
+    """
+    visits = []
+    left = set()
+    for event, row in stop_events:
+        passage = (row["userstopcode"], row["passagesequencenumber"])
+        if visits and visits[-1][0] == passage:
+            visits[-1][1].append((event, row))
+        elif passage in left:
+            # a late message for a passage the vehicle has already left
+            continue
+        else:
+            if visits:
+                left.add(visits[-1][0])
+            visits.append((passage, [(event, row)]))
+    return [events for _, events in visits]
+
+
+def visit_times(events: list) -> Tuple[Optional[dict], Optional[dict]]:
+    """
+    Returns the arrival and departure event of a visit. The arrival is the first
+    ARRIVAL or ONSTOP and the departure the last DEPARTURE after it: some operators
+    send a DEPARTURE as the vehicle pulls up to the stop, before it has halted. A visit
+    without an arrival is a pass, at the time of its first DEPARTURE.
+    """
+    for i, (event, row) in enumerate(events):
+        if event == "ARRIVAL":
+            departures = [r for e, r in events[i + 1 :] if e == "DEPARTURE"]
+            return row, departures[-1] if departures else None
+    return None, events[0][1]
+
+
+def derive_journey_times(
+    stop_events: list,
+) -> Iterator[Tuple[Literal["travel", "dwell"], dict]]:
+    """
+    Derives travel and dwell times from the stop events of a single journey.
+    """
+    last_departure = None
+    for events in group_visits(stop_events):
+        arrival, departure = visit_times(events)
+        reached = arrival if arrival is not None else departure
+
+        # travel time from the previous stop, unless its departure is missing
+        if last_departure is not None:
+            yield "travel", {
+                "lau": reached["lau_id"],
+                **trip_fields(reached),
+                "from_stop": f"{last_departure['dataownercode']}:{last_departure['userstopcode']}",
+                "to_stop": f"{reached['dataownercode']}:{reached['userstopcode']}",
+                "from_geometry": last_departure["geom"],
+                "to_geometry": reached["geom"],
+                "from_time": last_departure["timestamp"],
+                "to_time": reached["timestamp"],
+            }
+
+        # dwell time, zero if the vehicle passed the stop. A lone departure only counts
+        # as a pass after a departure from the previous stop: at the first stop it is
+        # the start of the journey, and after a missing departure the arrival is
+        # likely missing as well.
+        if departure is not None and (arrival is not None or last_departure is not None):
+            yield "dwell", {
+                "lau": departure["lau_id"],
+                **trip_fields(departure),
+                "stop": f"{departure['dataownercode']}:{departure['userstopcode']}",
+                "geometry": departure["geom"],
+                "from_time": reached["timestamp"],
+                "to_time": departure["timestamp"],
+            }
+
+        last_departure = departure
+
+
 def derive_times(
     rows: Iterator[dict],
 ) -> Iterator[Tuple[Literal["travel", "dwell", "trajectory"], dict]]:
@@ -88,61 +173,24 @@ def derive_times(
     Derives travel times, dwell times, and trajectories from KV6 data.
     """
 
-    last = None
-    current_stop = None
-    current_psn = None
-    types_seen_at_stop = set()
-    travel_seq = []
-    dwell_seq = []
-    valid_sequence = True
-    error_message = None
+    journey = None
+    stop_events = []
+    last_timestamp = None
     last_trajectory = None
 
-    def flush_sequences() -> Iterator[Tuple[Literal["travel", "dwell"], dict]]:
-        nonlocal travel_seq, dwell_seq, valid_sequence, error_message
-        if not (travel_seq or dwell_seq):
-            return
-        if not valid_sequence:
-            logging.error(
-                "Skipping invalid sequence "
-                f"(operatingday={travel_seq[0]['date'] if travel_seq else dwell_seq[0]['date']}, "
-                f"line={travel_seq[0]['line'] if travel_seq else dwell_seq[0]['line']}, "
-                f"trip={travel_seq[0]['trip'] if travel_seq else dwell_seq[0]['trip']}, "
-                f"reason={error_message})"
-            )
-        for t in travel_seq:
-            yield "travel", {**t, "valid": int(valid_sequence)}
-        for d in dwell_seq:
-            yield "dwell", {**d, "valid": int(valid_sequence)}
-        travel_seq.clear()
-        dwell_seq.clear()
-        valid_sequence = True
-        error_message = None
-
     for row in rows:
-        # clear variables on journey boundary
-        if last and any(row[f] != last[f] for f in JOURNEY_IDENTIFIERS):
-            yield from flush_sequences()
-            last = None
-            current_stop = None
-            current_psn = None
-            types_seen_at_stop.clear()
-
-        # clear duplicate tracker on stop boundary
-        if (
-            row["userstopcode"] != current_stop
-            or row["passagesequencenumber"] != current_psn
-        ):
-            current_stop = row["userstopcode"]
-            current_psn = row["passagesequencenumber"]
-            types_seen_at_stop.clear()
+        # derive the times of a journey once all of its events have been read
+        key = tuple(row[f] for f in JOURNEY_IDENTIFIERS)
+        if key != journey:
+            yield from derive_journey_times(stop_events)
+            journey = key
+            stop_events = []
+            last_timestamp = None
 
         # emit trajectory point for every row
         traj_entry = {
             "lau": row["lau_id"],
-            "date": row["operatingday"],
-            "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
-            "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
+            **trip_fields(row),
             "geometry": row["geom"],
             "time": row["timestamp"],
         }
@@ -156,107 +204,17 @@ def derive_times(
         if f"{row['dataownercode']}:{row['userstopcode']}" in STOP_BLACKLIST:
             continue
 
-        # ignore all types which are not handled by the state machine
-        if row["type"] not in ["ARRIVAL", "DEPARTURE", "ONSTOP"]:
+        # ignore all types which are not arrivals or departures
+        event = STOP_EVENTS.get(row["type"])
+        if event is None:
             continue
 
-        # as per the KV6 spec, ONSTOP without a prior ARRIVAL
-        # should be treated as an ARRIVAL
-        ct = row["type"]
-        if ct == "ONSTOP":
-            ct = "ARRIVAL"
-        if last:
-            lt = last["type"]
-            if lt == "ONSTOP":
-                lt = "ARRIVAL"
+        if last_timestamp is not None and row["timestamp"] < last_timestamp:
+            raise ValueError("Timestamps are not sorted")
+        last_timestamp = row["timestamp"]
+        stop_events.append((event, row))
 
-        # skip if we already saw this type at this stop
-        if ct in types_seen_at_stop:
-            continue
-        else:
-            types_seen_at_stop.add(ct)
-
-        if last:
-            if row["timestamp"] < last["timestamp"]:
-                raise ValueError("Timestamps are not sorted")
-
-            if lt == "DEPARTURE" and ct == "ARRIVAL":
-                # emit travel time > 0
-                travel_seq.append(
-                    {
-                        "lau": row["lau_id"],
-                        "date": row["operatingday"],
-                        "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
-                        "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
-                        "from_stop": f"{last['dataownercode']}:{last['userstopcode']}",
-                        "to_stop": f"{row['dataownercode']}:{row['userstopcode']}",
-                        "from_geometry": last["geom"],
-                        "to_geometry": row["geom"],
-                        "from_time": last["timestamp"],
-                        "to_time": row["timestamp"],
-                    }
-                )
-            elif lt == "DEPARTURE" and ct == "DEPARTURE":
-                # emit travel time > 0 and dwell time = 0
-                travel_seq.append(
-                    {
-                        "lau": row["lau_id"],
-                        "date": row["operatingday"],
-                        "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
-                        "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
-                        "from_stop": f"{last['dataownercode']}:{last['userstopcode']}",
-                        "to_stop": f"{row['dataownercode']}:{row['userstopcode']}",
-                        "from_geometry": last["geom"],
-                        "to_geometry": row["geom"],
-                        "from_time": last["timestamp"],
-                        "to_time": row["timestamp"],
-                    }
-                )
-                dwell_seq.append(
-                    {
-                        "lau": row["lau_id"],
-                        "date": row["operatingday"],
-                        "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
-                        "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
-                        "stop": f"{row['dataownercode']}:{row['userstopcode']}",
-                        "geometry": row["geom"],
-                        "from_time": row["timestamp"],
-                        "to_time": row["timestamp"],
-                    }
-                )
-            elif lt == "ARRIVAL" and ct == "DEPARTURE":
-                # emit dwell time > 0
-                if last["userstopcode"] == row["userstopcode"]:
-                    dwell_seq.append(
-                        {
-                            "lau": row["lau_id"],
-                            "date": row["operatingday"],
-                            "line": f"{row['dataownercode']}:{row['lineplanningnumber']}",
-                            "trip": f"{row['dataownercode']}:{row['journeynumber']}:{row['reinforcementnumber']}",
-                            "stop": f"{row['dataownercode']}:{row['userstopcode']}",
-                            "geometry": row["geom"],
-                            "from_time": last["timestamp"],
-                            "to_time": row["timestamp"],
-                        }
-                    )
-                else:
-                    valid_sequence = False
-                    error_message = "Departed from wrong stop"
-            elif lt == "ARRIVAL" and ct == "ARRIVAL":
-                if last["userstopcode"] == row["userstopcode"]:
-                    # this is just an update, ignore
-                    pass
-                else:
-                    valid_sequence = False
-                    error_message = "Two arrivals in a row"
-            else:
-                valid_sequence = False
-                error_message = f"Unexpected event sequence ({lt} -> {ct})"
-
-        last = row
-
-    if travel_seq or dwell_seq:
-        yield from flush_sequences()
+    yield from derive_journey_times(stop_events)
 
 
 with (

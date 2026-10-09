@@ -64,7 +64,6 @@ def clean_for_output(df: pd.DataFrame) -> pd.DataFrame:
     df["date"] = df["date"].dt.strftime("%Y-%m-%d")
     df["from_time"] = df["from_time"].dt.strftime("%Y-%m-%d %H:%M:%S%z")
     df["to_time"] = df["to_time"].dt.strftime("%Y-%m-%d %H:%M:%S%z")
-    df["valid"] = (df["valid"] & df["valid_dwell_times"]).astype("int8")
     df["route"] = df["route_id"]
     if "from_geometry" in df.columns:
         return df[

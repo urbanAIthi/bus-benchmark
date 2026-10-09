@@ -58,7 +58,6 @@ def load_travel_times(path: str) -> pd.DataFrame:
             "to_geometry": "category",
             "from_time": str,
             "to_time": str,
-            "valid": "int8",
         },
         parse_dates=["date"],
     )
@@ -82,7 +81,6 @@ def load_dwell_times(path: str) -> pd.DataFrame:
             "geometry": "category",
             "from_time": str,
             "to_time": str,
-            "valid": "int8",
         },
         parse_dates=["date"],
     )
